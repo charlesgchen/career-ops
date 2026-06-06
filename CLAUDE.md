@@ -3,7 +3,7 @@
 > **This is a personalized, trimmed setup.** Non-English language modes, the
 > markdown→HTML→PDF flow, the Gemini eval engine, the Go dashboard, auto-updates, and
 > open-source repo scaffolding have been removed. The CV source of truth is the user's
-> **`cv.tex`** (LaTeX), tailored per job by the `latex` mode. Output is always English.
+> three LaTeX **base résumés** (one per track: ML / research / SWE), tailored per job by the `latex` mode. Output is always English.
 
 ## Origin
 
@@ -16,7 +16,7 @@ This system was originally built by [santifer](https://santifer.io) to evaluate 
 There are two layers. Read `DATA_CONTRACT.md` for the full list.
 
 **User Layer (personalization goes HERE):**
-- `cv.tex`, `config/profile.yml`, `modes/_profile.md`, `article-digest.md`, `portals.yml`
+- `cv-ml.tex`, `cv-research.tex`, `cv-swe.tex`, `config/profile.yml`, `modes/_profile.md`, `article-digest.md`, `portals.yml`
 - `data/*`, `reports/*`, `output/*`, `interview-prep/*`
 
 **System Layer (logic, scripts, templates):**
@@ -37,12 +37,12 @@ AI-powered job search automation: pipeline tracking, offer evaluation, LaTeX CV 
 
 | File | Function |
 |------|----------|
-| `cv.tex` | The user's LaTeX resume — canonical source of truth |
+| `cv-ml.tex` / `cv-research.tex` / `cv-swe.tex` | The user's LaTeX base résumés (one per track) — canonical source of truth. See `cv.bases` in profile.yml |
 | `data/applications.md` | Application tracker |
 | `data/pipeline.md` | Inbox of pending URLs |
 | `data/scan-history.tsv` | Scanner dedup history |
 | `portals.yml` | Query and company config |
-| `templates/cv-template.tex` | LaTeX/Overleaf starter template (only if user has no `cv.tex` yet) |
+| `templates/cv-template.tex` | LaTeX/Overleaf starter template (only when a base résumé is missing) |
 | `generate-latex.mjs` | LaTeX CV validator + tectonic/pdflatex compiler |
 | `article-digest.md` | Compact proof points from portfolio (optional) |
 | `interview-prep/story-bank.md` | Accumulated STAR+R stories across evaluations |
@@ -59,7 +59,7 @@ AI-powered job search automation: pipeline tracking, offer evaluation, LaTeX CV 
 
 **Before doing ANYTHING else, check if the system is set up.** Run these checks silently every time a session starts:
 
-1. Does `cv.tex` exist?
+1. Do the base résumés exist? (`cv-ml.tex`, `cv-research.tex`, `cv-swe.tex` — at least the tracks the user targets; see `config/profile.yml → cv.bases`)
 2. Does `config/profile.yml` exist (not just profile.example.yml)?
 3. Does `modes/_profile.md` exist (not just _profile.template.md)?
 4. Does `portals.yml` exist (not just templates/portals.example.yml)?
@@ -69,15 +69,17 @@ If `modes/_profile.md` is missing, copy from `modes/_profile.template.md` silent
 **If ANY of these is missing, enter onboarding mode.** Do NOT proceed with evaluations, scans, or any other mode until the basics are in place.
 
 #### Step 1: CV (required)
-If `cv.tex` is missing, ask:
-> "I don't have your LaTeX resume yet. You can either:
-> 1. Paste your `.tex` resume here and I'll save it as `cv.tex`
-> 2. Paste your current CV (any format) and I'll convert it to a clean `.tex`
-> 3. Start from the bundled `templates/cv-template.tex` and fill it in together
->
-> Which do you prefer?"
+This setup uses **three base résumés, one per career track**: `cv-ml.tex` (ML), `cv-research.tex` (research), `cv-swe.tex` (SWE). The `latex` mode picks the base matching each role and tailors a copy — it never edits a base directly.
 
-Save the result as `cv.tex` in the project root. This is the master that the `latex` mode duplicates and tailors per job — it is never edited directly during tailoring.
+If a base is missing, ask:
+> "Let's set up your base résumés (one per track: ML / research / SWE). For each, you can:
+> 1. Paste your `.tex` résumé and I'll save it as the base
+> 2. Paste your current CV (any format) and I'll convert it to a clean `.tex`
+> 3. Start from `templates/cv-template.tex` and fill it in together
+>
+> Which track do you want to set up first?"
+
+Save each as `cv-{track}.tex` in the project root. Keep contact info and education identical across all three (the `latex` mode and `cv-sync-check.mjs` rely on that). You only need the tracks you actually target.
 
 #### Step 2: Profile (required)
 If `config/profile.yml` is missing, copy from `config/profile.example.yml` and then ask:
@@ -133,7 +135,7 @@ When the user asks you to change archetypes, adjust scoring, add companies, or m
 - "Change the archetypes to [backend/frontend/data/devops] roles" → edit `modes/_profile.md` or `config/profile.yml`
 - "Add these companies to my portals" → edit `portals.yml`
 - "Update my profile" → edit `config/profile.yml`
-- "Change the CV layout" → edit the user's `cv.tex` (or `templates/cv-template.tex`)
+- "Change the CV layout" → edit the relevant base résumé (`cv-ml/cv-research/cv-swe.tex`)
 - "Adjust the scoring weights" → edit `modes/_profile.md` for user-specific weighting, or `modes/_shared.md` + `batch/batch-prompt.md` for shared defaults
 
 ### Language
@@ -163,8 +165,9 @@ This setup is **English-only**. Use the default `modes/` for all output. (Non-En
 
 ### CV Source of Truth
 
-- `cv.tex` in project root is the canonical CV (the user's own LaTeX).
-- The `latex` mode duplicates it to `output/` and tailors the copy per job — it NEVER edits `cv.tex` directly and NEVER invents skills the user doesn't have (see `modes/latex.md`).
+- The three base résumés in project root are canonical — one per track: `cv-ml.tex` (ML), `cv-research.tex` (research), `cv-swe.tex` (SWE). Mapping lives in `config/profile.yml → cv.bases`.
+- The `latex` mode selects the base matching the role, duplicates it to `output/`, and tailors the copy per job — it NEVER edits a base directly and NEVER invents skills the user doesn't have (see `modes/latex.md`). For evaluation, read the base matching the role's track; consult the others for transferable experience.
+- Keep contact info + education identical across bases (`cv.shared_fields`); `cv-sync-check.mjs` warns on drift.
 - `article-digest.md` has detailed proof points (optional).
 - **NEVER hardcode metrics** -- read them from these files at evaluation time.
 
@@ -175,7 +178,7 @@ This setup is **English-only**. Use the default `modes/` for all output. (Non-En
 **This system is designed for quality, not quantity.**
 
 - **NEVER submit an application without the user reviewing it first.** Fill forms, draft answers, generate PDFs -- but always STOP before clicking Submit/Send/Apply.
-- **NEVER invent skills, tools, or experience the user doesn't have** when tailoring the CV. Reword and reorder what's in `cv.tex`; never add new claims.
+- **NEVER invent skills, tools, or experience the user doesn't have** when tailoring the CV. Reword and reorder what's in the selected base résumé; never add new claims (and don't pull from a different base just because the JD asks).
 - **Strongly discourage low-fit applications.** If a score is below 4.0/5, explicitly recommend against applying.
 - **Quality over speed.** A well-targeted application to 5 companies beats a generic blast to 50.
 - **Respect recruiters' time.** Every application a human reads costs someone's attention.

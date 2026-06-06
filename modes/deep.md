@@ -38,7 +38,7 @@ Context: I am evaluating a candidacy for [role] at [company]. I need actionable 
 - How are they positioned vs competitors?
 
 ### 6. Candidate angle
-Given my profile (read from cv.tex and profile.yml for specific experience):
+Given my profile (read from my base résumés — cv-ml/cv-research/cv-swe.tex — and profile.yml for specific experience):
 - What unique value do I bring to this team?
 - Which of my projects are most relevant?
 - What story should I tell in the interview?

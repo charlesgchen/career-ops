@@ -4,7 +4,7 @@
  * cv-sync-check.mjs — Validates that the career-ops setup is consistent.
  *
  * Checks:
- * 1. cv.tex exists
+ * 1. Base résumés (cv-ml/cv-research/cv-swe.tex) exist + shared fields don't drift
  * 2. config/profile.yml exists and has required fields
  * 3. No hardcoded metrics in _shared.md or batch/batch-prompt.md
  * 4. article-digest.md freshness (if exists)
@@ -20,14 +20,37 @@ const projectRoot = __dirname;
 const warnings = [];
 const errors = [];
 
-// 1. Check cv.tex exists
-const cvPath = join(projectRoot, 'cv.tex');
-if (!existsSync(cvPath)) {
-  errors.push('cv.tex not found in project root. Create it with your LaTeX resume (master source of truth).');
+// 1. Check base résumés exist (one per career track) and don't drift on shared fields.
+const CV_BASES = ['cv-ml.tex', 'cv-research.tex', 'cv-swe.tex'];
+const presentBases = [];
+for (const base of CV_BASES) {
+  const p = join(projectRoot, base);
+  if (!existsSync(p)) continue;
+  presentBases.push(base);
+  const content = readFileSync(p, 'utf-8');
+  if (content.trim().length < 100) {
+    warnings.push(`${base} seems too short. Make sure it contains your full CV.`);
+  }
+}
+if (presentBases.length === 0) {
+  errors.push(`No base résumés found. Create your LaTeX bases in the project root: ${CV_BASES.join(', ')}.`);
 } else {
-  const cvContent = readFileSync(cvPath, 'utf-8');
-  if (cvContent.trim().length < 100) {
-    warnings.push('cv.tex seems too short. Make sure it contains your full CV.');
+  for (const base of CV_BASES) {
+    if (!presentBases.includes(base)) {
+      warnings.push(`${base} not found. Create it (copy another base or templates/cv-template.tex) if you target that track.`);
+    }
+  }
+  // Drift guard: contact email should be identical across bases (cv.shared_fields).
+  const emailRe = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+  const emails = new Map();
+  for (const base of presentBases) {
+    const m = readFileSync(join(projectRoot, base), 'utf-8').match(emailRe);
+    if (m) emails.set(base, m[0].toLowerCase());
+  }
+  const distinct = new Set(emails.values());
+  if (distinct.size > 1) {
+    const detail = [...emails.entries()].map(([b, e]) => `${b}=${e}`).join(', ');
+    warnings.push(`Contact email differs across base résumés (${detail}). Keep shared fields in sync.`);
   }
 }
 
@@ -66,7 +89,7 @@ for (const { path, name } of filesToCheck) {
     if (line.includes('NEVER hardcode') || line.includes('NUNCA hardcode') || line.startsWith('#') || line.startsWith('<!--')) continue;
     const matches = line.match(metricPattern);
     if (matches) {
-      warnings.push(`${name}:${i + 1} — Possible hardcoded metric: "${matches[0]}". Should this be read from cv.tex/article-digest.md?`);
+      warnings.push(`${name}:${i + 1} — Possible hardcoded metric: "${matches[0]}". Should this be read from a base résumé/article-digest.md?`);
     }
   }
 }

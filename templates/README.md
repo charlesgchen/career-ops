@@ -6,13 +6,13 @@ System-layer template files used by career-ops scripts and modes. Put user custo
 
 | File | Used By | Purpose |
 |------|---------|---------|
-| `cv-template.tex` | `generate-latex.mjs` | LaTeX/Overleaf starter template (only if you have no `cv.tex` yet) |
+| `cv-template.tex` | `generate-latex.mjs` | LaTeX/Overleaf starter template (only when a base résumé is missing) |
 | `portals.example.yml` | Onboarding | Example portal scanner configuration (copy to `portals.yml` to activate) |
 | `states.yml` | `verify-pipeline.mjs`, `normalize-statuses.mjs`, `merge-tracker.mjs` | Canonical application states and their aliases |
 
 ### cv-template.tex
 
-A clean starting point if you don't already have a LaTeX resume. Once you have `cv.tex` in the project root, **that** is the source of truth — the `latex` mode duplicates and tailors it per job. Based on the [sb2nov/resume](https://github.com/sb2nov/resume) format.
+A clean starting point if you're missing a base résumé. Your real sources of truth are the per-track base files in the project root — `cv-ml.tex`, `cv-research.tex`, `cv-swe.tex` (see `cv.bases` in profile.yml) — which the `latex` mode duplicates and tailors per job. Based on the [sb2nov/resume](https://github.com/sb2nov/resume) format.
 
 **Design:** Single-column ATS-safe layout using standard CTAN packages (`fontawesome5`, `enumitem`, `hyperref`, `titlesec`). No custom fonts or external dependencies — uploads directly to Overleaf.
 

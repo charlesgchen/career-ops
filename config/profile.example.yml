@@ -67,19 +67,28 @@ location:
   # onsite_availability: "1 week/month in any city"
 
 cv:
-  output_format: "html" # "html" (default) or "latex"
-  # (Optional) Canva resume design ID for visual CV generation via /career-ops pdf.
-  # Find it in your Canva design URL: https://www.canva.com/design/DAxxxxxxx/...
-  # The ID starts with "D" and is 11 characters long.
-  # canva_resume_design_id: "DAxxxxxxxxx"
+  # This setup uses MULTIPLE base résumés, one per career track (all LaTeX).
+  # The `latex` mode detects the role, picks the matching base, duplicates it,
+  # and tailors the COPY per job — it never edits a base directly and never
+  # invents skills you don't have.
+  bases:
+    ml: "cv-ml.tex"             # ML engineer / applied ML / MLOps / data-science modeling
+    research: "cv-research.tex" # research scientist / PhD / publications-oriented roles (academic format)
+    swe: "cv-swe.tex"           # software engineer / backend / platform / infra / full-stack
+  # Fallback track when a role is ambiguous (e.g. "ML SWE"). The agent will ask
+  # to confirm before tailoring if it can't tell.
+  default_base: "swe"
+  # Fields that MUST stay identical across all base files (drift guard for
+  # `cv-sync-check.mjs`). Keep contact + education in sync when you edit a base.
+  shared_fields: ["name", "email", "phone", "education"]
 
 # Auto-PDF threshold during evaluation (used by `/career-ops pipeline` and
 # `bash batch/batch-runner.sh`).
 #
 # An offer's tailored CV PDF is auto-generated only when its score is
-# >= this threshold. Generating a PDF costs ~30-60s per offer (Playwright
-# launch + HTML render), and most offers in a scan score 2.x/3.x and never
-# become an actual application — so the gate avoids wasted renders.
+# >= this threshold. Compiling a tailored .tex costs a few seconds per offer,
+# and most offers in a scan score 2.x/3.x and never become an actual
+# application — so the gate avoids wasted compiles.
 #
 # Default (key absent OR commented out): 3.0 — the original gate of
 # `/career-ops pipeline`. Both evaluation paths apply the same default, so
@@ -87,7 +96,7 @@ cv:
 #
 # Raise it (e.g. 4.0) to auto-generate PDFs only for stronger matches and
 # leave the rest report-only — those can still be produced on demand via
-# `/career-ops pdf {company-slug}`. Fractional thresholds work (e.g. 3.5 —
+# `/career-ops latex {company-slug}`. Fractional thresholds work (e.g. 3.5 —
 # half-point scores like 3.5/5 occur in evaluations). Set it to 0 to
 # generate a PDF for every offer.
 # auto_pdf_score_threshold: 4.0

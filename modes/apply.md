@@ -56,7 +56,7 @@ Identify ALL visible questions:
 
 Classify each question:
 - **Already answered in Section G** → adapt the existing response
-- **New question** → generate response from the report + cv.tex
+- **New question** → generate response from the report + the relevant base résumé
 
 ## Step 5 — Generate responses
 

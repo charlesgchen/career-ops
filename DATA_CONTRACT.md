@@ -10,7 +10,7 @@ These files contain your personal data, customizations, and work product. Update
 
 | File | Purpose |
 |------|---------|
-| `cv.tex` | Your LaTeX resume (canonical source of truth) |
+| `cv-ml.tex`, `cv-research.tex`, `cv-swe.tex` | Your LaTeX base résumés, one per track (canonical source of truth; see `cv.bases` in profile.yml) |
 | `config/profile.yml` | Your identity, targets, comp range |
 | `modes/_profile.md` | Your archetypes, narrative, negotiation scripts |
 | `article-digest.md` | Your proof points from portfolio |

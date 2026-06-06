@@ -33,15 +33,18 @@ Copy from `templates/portals.example.yml` and customize:
 3. **search_queries**: WebSearch queries for job boards (Ashby, Greenhouse, Lever)
 4. **tracked_companies**: Companies to check directly
 
-## CV (cv.tex)
+## CVs (base résumés, one per track)
 
-Your `cv.tex` in the project root is the canonical resume — your own LaTeX, your own
-layout. The `latex` mode duplicates it per job and tailors the copy; it never edits
-`cv.tex` directly and never invents skills you don't have.
+You maintain three canonical LaTeX résumés — `cv-ml.tex`, `cv-research.tex`,
+`cv-swe.tex` — your own layout. The `latex` mode picks the base matching each role,
+duplicates it, and tailors the copy; it never edits a base directly and never invents
+skills you don't have. The track→file mapping is in `config/profile.yml → cv.bases`.
 
-- To change your resume's design, edit `cv.tex` directly (preamble, packages, spacing, colors).
-- If you don't have a `.tex` resume yet, `templates/cv-template.tex` is a clean,
-  Overleaf-compatible, single-column ATS-safe starting point.
+- To change a résumé's design, edit that base directly (preamble, packages, spacing, colors).
+- Keep contact info + education identical across the three (see `cv.shared_fields`);
+  `node cv-sync-check.mjs` warns if they drift.
+- Missing a base? `templates/cv-template.tex` is a clean, Overleaf-compatible,
+  single-column ATS-safe starting point.
 - Compilation needs `tectonic` (recommended) or `pdflatex` on PATH — or upload the
   generated `.tex` to Overleaf.
 

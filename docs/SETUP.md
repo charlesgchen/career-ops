@@ -23,11 +23,11 @@ cp config/profile.example.yml config/profile.yml
 
 Edit `config/profile.yml` with your details: name, email, target roles, narrative, proof points.
 
-### 3. Add your CV (LaTeX)
+### 3. Add your CVs (LaTeX base résumés)
 
-Put your resume as `cv.tex` in the project root. **This is the canonical source of truth** — the `latex` mode duplicates it per job and tailors the copy (it never edits `cv.tex` directly, and never invents skills you don't have).
+Put your résumés in the project root, one per track: `cv-ml.tex`, `cv-research.tex`, `cv-swe.tex`. **These are the canonical source of truth** — the `latex` mode picks the base matching each role, duplicates it, and tailors the copy (it never edits a base directly, and never invents skills you don't have). The track→file mapping lives in `config/profile.yml → cv.bases`.
 
-If you don't have a `.tex` resume yet, start from `templates/cv-template.tex` or paste your current CV and have the agent convert it.
+Keep contact info + education identical across the three. You only need the tracks you actually target. Missing one? Start from `templates/cv-template.tex` or paste a CV and have the agent convert it.
 
 (Optional) Create `article-digest.md` with proof points from your portfolio.
 
@@ -50,7 +50,7 @@ Open Claude Code in this directory:
 claude
 ```
 
-Then paste a job offer URL or description. Career-ops will evaluate it, generate a report, tailor your `cv.tex` into a PDF, and track it.
+Then paste a job offer URL or description. Career-ops will evaluate it, generate a report, tailor the matching base résumé into a PDF, and track it.
 
 ## Available Commands
 

@@ -27,7 +27,7 @@ Include Block G in the saved report. Add **URL:** {url} and **Legitimacy:** {tie
 
 ## Step 3 — Generate the tailored CV (PDF)
 
-Execute the full pipeline from `modes/latex.md`: duplicate the user's `cv.tex`, tailor the copy to this job (NEVER invent skills), and compile it to PDF via `generate-latex.mjs`.
+Execute the full pipeline from `modes/latex.md`: select the base résumé matching the role's track (`cv.bases`), duplicate it, tailor the copy to this job (NEVER invent skills), and compile it to PDF via `generate-latex.mjs`.
 
 ## Step 4 — Draft Application Answers (only if score >= 4.5)
 

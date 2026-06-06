@@ -49,7 +49,7 @@ async function main() {
   }
 
   // Fatal issues block compilation; warnings are advisory only. Since the user
-  // edits their own cv.tex (any LaTeX style), section names and the bundled
+  // edits their own base résumé (any LaTeX style), section names and the bundled
   // template's custom commands are recommendations, not requirements.
   const issues = [];
   const warnings = [];

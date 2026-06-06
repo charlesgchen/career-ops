@@ -63,16 +63,31 @@ async function checkPlaywright() {
   }
 }
 
+// Base résumés, one per career track. See config/profile.yml → cv.bases.
+const CV_BASES = ['cv-ml.tex', 'cv-research.tex', 'cv-swe.tex'];
+
 function checkCv() {
-  if (existsSync(join(projectRoot, 'cv.tex'))) {
-    return { pass: true, label: 'cv.tex found' };
+  const present = CV_BASES.filter((f) => existsSync(join(projectRoot, f)));
+  const missing = CV_BASES.filter((f) => !present.includes(f));
+  if (missing.length === 0) {
+    return { pass: true, label: `Base résumés found (${CV_BASES.join(', ')})` };
+  }
+  if (present.length > 0) {
+    return {
+      pass: false,
+      label: `Some base résumés missing: ${missing.join(', ')}`,
+      fix: [
+        `Found: ${present.join(', ')}`,
+        'Create the missing base(s) from templates/cv-template.tex or by copying an existing base',
+      ],
+    };
   }
   return {
     pass: false,
-    label: 'cv.tex not found',
+    label: 'No base résumés found',
     fix: [
-      'Create cv.tex in the project root with your LaTeX resume (your master source of truth)',
-      'See templates/cv-template.tex for the expected structure',
+      `Create your LaTeX base résumés in the project root: ${CV_BASES.join(', ')}`,
+      'One per track (ML / research / SWE). See templates/cv-template.tex for the structure',
     ],
   };
 }
@@ -106,7 +121,7 @@ function checkPortals() {
 }
 
 function checkLatexCompiler() {
-  // The latex mode compiles cv.tex via tectonic (preferred) or pdflatex.
+  // The latex mode compiles a base résumé via tectonic (preferred) or pdflatex.
   for (const bin of ['tectonic', 'pdflatex']) {
     try {
       execFileSync(bin, ['--version'], { stdio: 'ignore' });
@@ -121,7 +136,7 @@ function checkLatexCompiler() {
     fix: [
       'Install tectonic (recommended — auto-downloads packages): https://tectonic-typesetting.github.io',
       'Or install a TeX distribution: MiKTeX (Windows) / TeX Live',
-      'Needed only for generating tailored CV PDFs from cv.tex',
+      'Needed only for generating tailored CV PDFs from your base résumés',
     ],
   };
 }

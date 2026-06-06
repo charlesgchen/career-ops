@@ -23,8 +23,8 @@
      ┌──────▼──────────────────────────────────────────▼──────┐
      │                    Output Pipeline                      │
      │  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │
-     │  │ Report.md│  │ PDF (cv.tex │  │ Tracker TSV       │  │
-     │  │ (A-F eval)│  │  → LaTeX)   │  │ (merge-tracker)  │  │
+     │  │ Report.md│  │ PDF (base   │  │ Tracker TSV       │  │
+     │  │ (A-F eval)│  │ .tex→LaTeX) │  │ (merge-tracker)  │  │
      │  └──────────┘  └────────────┘  └───────────────────┘  │
      └────────────────────────────────────────────────────────┘
                                │
@@ -48,7 +48,7 @@
    - F: Interview prep (STAR stories)
 5. **Score**: Weighted average across 10 dimensions (1-5)
 6. **Report**: Save as `reports/{num}-{company}-{date}.md`
-7. **PDF**: Tailor the user's `cv.tex` and compile to PDF (`modes/latex.md` → `generate-latex.mjs`)
+7. **PDF**: Pick the base résumé for the role's track, tailor it, and compile to PDF (`modes/latex.md` → `generate-latex.mjs`)
 8. **Track**: Write TSV to `batch/tracker-additions/`, auto-merged
 
 ## Batch Processing
@@ -65,7 +65,7 @@ batch-input.tsv    →  batch-runner.sh  →  N × headless CLI workers
 
 Each worker is a headless Claude Code instance — the bundled `batch-runner.sh` invokes `claude -p`. Workers produce:
 - Report .md
-- PDF (tailored from `cv.tex`, if a LaTeX compiler is available)
+- PDF (tailored from the matching base résumé, if a LaTeX compiler is available)
 - Tracker TSV line
 
 The orchestrator manages parallelism, state, retries, and resume.
@@ -73,12 +73,12 @@ The orchestrator manages parallelism, state, retries, and resume.
 ## Data Flow
 
 ```
-cv.tex                   →  Evaluation context + tailoring source of truth
+cv-{ml,research,swe}.tex →  Evaluation context + tailoring source of truth (per track)
 article-digest.md        →  Proof points for matching
-config/profile.yml       →  Candidate identity
+config/profile.yml       →  Candidate identity + cv.bases track mapping
 portals.yml              →  Scanner configuration
 templates/states.yml     →  Canonical status values
-templates/cv-template.tex →  LaTeX starter (only if no cv.tex yet)
+templates/cv-template.tex →  LaTeX starter (only when a base is missing)
 ```
 
 ## File Naming Conventions

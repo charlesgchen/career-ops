@@ -14,16 +14,16 @@ Eres un worker de evaluación de ofertas de empleo for the candidate (read name 
 
 | Archivo | Ruta absoluta | Cuándo |
 |---------|---------------|--------|
-| cv.tex | `cv.tex (project root)` | SIEMPRE (master resume, source of truth) |
+| base résumés | `cv-ml.tex` / `cv-research.tex` / `cv-swe.tex` (ver `config/profile.yml → cv.bases`) | SIEMPRE — lee el base que matchea el track del rol; consulta los otros para experiencia transferible |
 | _profile.md | `modes/_profile.md (if exists)` | SIEMPRE (user customizations: archetypes, role_shape, location policy, comp targets) |
 | profile.yml | `config/profile.yml (if exists)` | SIEMPRE (candidate identity, comp range, role_shape rules) |
 | article-digest.md | `article-digest.md (project root)` | SIEMPRE (proof points) |
-| cv-template.tex | `templates/cv-template.tex` | Starter only (if no cv.tex yet) |
+| cv-template.tex | `templates/cv-template.tex` | Starter only (si falta algún base) |
 | generate-latex.mjs | `generate-latex.mjs` | Para compilar el CV a PDF |
 
-**REGLA: NUNCA escribir en cv.tex.** Son read-only.
-**REGLA: NUNCA hardcodear métricas.** Leerlas de cv.tex + article-digest.md en el momento.
-**REGLA: Para métricas de artículos, article-digest.md prevalece sobre cv.tex.** cv.tex puede tener números más antiguos — es normal.
+**REGLA: NUNCA escribir en el CV base.** Son read-only.
+**REGLA: NUNCA hardcodear métricas.** Leerlas de el CV base + article-digest.md en el momento.
+**REGLA: Para métricas de artículos, article-digest.md prevalece sobre el CV base.** el CV base puede tener números más antiguos — es normal.
 **REGLA: Antes de evaluar, cargar `modes/_profile.md` y `config/profile.yml` si existen.** Contienen las preferencias del candidato Y reglas concretas de scoring que **sobrescriben** los defaults del sistema.
 
 Tipos de patrones que estos archivos pueden incluir:
@@ -63,7 +63,7 @@ Aplicación durante la evaluación A-G:
 
 ### Paso 2 — Evaluación A-G
 
-Read `cv.tex`. Ejecuta TODOS los bloques:
+Read `el CV base`. Ejecuta TODOS los bloques:
 
 #### Paso 0 — Detección de Arquetipo
 
@@ -82,16 +82,16 @@ Clasifica la oferta en uno de los 6 arquetipos. Si es híbrido, indica los 2 má
 
 **Framing adaptativo:**
 
-> **Las métricas concretas se leen de `cv.tex` + `article-digest.md` en cada evaluación. NUNCA hardcodear números aquí.**
+> **Las métricas concretas se leen de `el CV base` + `article-digest.md` en cada evaluación. NUNCA hardcodear números aquí.**
 
 | Si el rol es... | Emphasize about the candidate... | Fuentes de proof points |
 |-----------------|--------------------------|--------------------------|
-| Platform / LLMOps | Builder de sistemas en producción, observability, evals, closed-loop | article-digest.md + cv.tex |
-| Agentic / Automation | Orquestación multi-agente, HITL, reliability, cost | article-digest.md + cv.tex |
-| Technical AI PM | Product discovery, PRDs, métricas, stakeholder mgmt | cv.tex + article-digest.md |
-| Solutions Architect | Diseño de sistemas, integrations, enterprise-ready | article-digest.md + cv.tex |
-| Forward Deployed Engineer | Fast delivery, client-facing, prototype → prod | cv.tex + article-digest.md |
-| AI Transformation Lead | Change management, team enablement, adoption | cv.tex + article-digest.md |
+| Platform / LLMOps | Builder de sistemas en producción, observability, evals, closed-loop | article-digest.md + el CV base |
+| Agentic / Automation | Orquestación multi-agente, HITL, reliability, cost | article-digest.md + el CV base |
+| Technical AI PM | Product discovery, PRDs, métricas, stakeholder mgmt | el CV base + article-digest.md |
+| Solutions Architect | Diseño de sistemas, integrations, enterprise-ready | article-digest.md + el CV base |
+| Forward Deployed Engineer | Fast delivery, client-facing, prototype → prod | el CV base + article-digest.md |
+| AI Transformation Lead | Change management, team enablement, adoption | el CV base + article-digest.md |
 
 **Ventaja transversal**: Enmarcar perfil como **"Technical builder"** que adapta su framing al rol:
 - Para PM: "builder que reduce incertidumbre con prototipos y luego productioniza con disciplina"
@@ -107,7 +107,7 @@ Tabla con: Arquetipo detectado, Domain, Function, Seniority, Remote, Team size, 
 
 #### Bloque B — Match con CV
 
-Read `cv.tex`. Tabla con cada requisito del JD mapeado a líneas exactas del CV.
+Read `el CV base`. Tabla con cada requisito del JD mapeado a líneas exactas del CV.
 
 **Adaptado al arquetipo:**
 - FDE → priorizar delivery rápida y client-facing
@@ -293,11 +293,11 @@ next_action: "{one concrete next step}"
 
 **If score ≥ threshold**, generate the tailored CV (LaTeX → PDF). Output is always English.
 
-1. Lee `cv.tex` (the user's master LaTeX resume — source of truth)
+1. Selecciona el base `{base}` que matchea el track del rol (`config/profile.yml → cv.bases`: `cv-ml.tex` / `cv-research.tex` / `cv-swe.tex`). Si es ambiguo, usa `cv.default_base`. Lee `{base}` (source of truth para ese track).
 2. Extrae 15-20 keywords del JD
 3. Detecta arquetipo → adapta framing
-4. Copia `cv.tex` → `output/cv-candidate-{company-slug}-{{DATE}}.tex`
-5. Edita SOLO la copia (NUNCA `cv.tex`):
+4. Copia `{base}` → `output/cv-candidate-{company-slug}-{{DATE}}.tex`
+5. Edita SOLO la copia (NUNCA `{base}`):
    - Reescribe el Professional Summary inyectando keywords
    - Selecciona/reordena top 3-4 proyectos más relevantes
    - Reordena bullets de experiencia por relevancia al JD
@@ -401,14 +401,14 @@ Si algo falla:
 
 ### NUNCA
 1. Inventar experiencia o métricas
-2. Modificar cv.tex ni archivos del portfolio
+2. Modificar el CV base ni archivos del portfolio
 3. Compartir el teléfono en mensajes generados
 4. Recomendar comp por debajo de mercado
 5. Generar PDF sin leer primero el JD
 6. Usar corporate-speak
 
 ### SIEMPRE
-1. Leer cv.tex y article-digest.md antes de evaluar
+1. Leer el CV base y article-digest.md antes de evaluar
 2. Detectar el arquetipo del rol y adaptar el framing
 3. Citar líneas exactas del CV cuando haga match
 4. Usar WebSearch para datos de comp y empresa
