@@ -23,8 +23,8 @@
      ┌──────▼──────────────────────────────────────────▼──────┐
      │                    Output Pipeline                      │
      │  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │
-     │  │ Report.md│  │  PDF (HTML  │  │ Tracker TSV       │  │
-     │  │ (A-F eval)│  │  → Puppeteer)│  │ (merge-tracker)  │  │
+     │  │ Report.md│  │ PDF (cv.tex │  │ Tracker TSV       │  │
+     │  │ (A-F eval)│  │  → LaTeX)   │  │ (merge-tracker)  │  │
      │  └──────────┘  └────────────┘  └───────────────────┘  │
      └────────────────────────────────────────────────────────┘
                                │
@@ -48,7 +48,7 @@
    - F: Interview prep (STAR stories)
 5. **Score**: Weighted average across 10 dimensions (1-5)
 6. **Report**: Save as `reports/{num}-{company}-{date}.md`
-7. **PDF**: Generate ATS-optimized CV (`generate-pdf.mjs`)
+7. **PDF**: Tailor the user's `cv.tex` and compile to PDF (`modes/latex.md` → `generate-latex.mjs`)
 8. **Track**: Write TSV to `batch/tracker-additions/`, auto-merged
 
 ## Batch Processing
@@ -63,9 +63,9 @@ batch-input.tsv    →  batch-runner.sh  →  N × headless CLI workers
                     (tracks progress)
 ```
 
-Each worker is a headless AI CLI instance — the bundled `batch-runner.sh` invokes `claude -p`, but the architecture supports any CLI's headless mode (see the Headless / Batch Mode table in `AGENTS.md` for the correct command per CLI). Workers produce:
+Each worker is a headless Claude Code instance — the bundled `batch-runner.sh` invokes `claude -p`. Workers produce:
 - Report .md
-- PDF
+- PDF (tailored from `cv.tex`, if a LaTeX compiler is available)
 - Tracker TSV line
 
 The orchestrator manages parallelism, state, retries, and resume.
@@ -73,12 +73,12 @@ The orchestrator manages parallelism, state, retries, and resume.
 ## Data Flow
 
 ```
-cv.md                    →  Evaluation context
+cv.tex                   →  Evaluation context + tailoring source of truth
 article-digest.md        →  Proof points for matching
 config/profile.yml       →  Candidate identity
 portals.yml              →  Scanner configuration
 templates/states.yml     →  Canonical status values
-templates/cv-template.html → PDF generation template
+templates/cv-template.tex →  LaTeX starter (only if no cv.tex yet)
 ```
 
 ## File Naming Conventions
@@ -98,13 +98,3 @@ Scripts maintain data consistency:
 | `dedup-tracker.mjs` | Removes duplicate entries by company+role |
 | `normalize-statuses.mjs` | Maps status aliases to canonical values |
 | `cv-sync-check.mjs` | Validates setup consistency |
-
-## Dashboard TUI
-
-The `dashboard/` directory contains a standalone Go TUI application that visualizes the pipeline:
-
-- Filter tabs: All, Evaluada, Aplicado, Entrevista, Top >=4, No Aplicar
-- Sort modes: Score, Date, Company, Status
-- Grouped/flat view
-- Lazy-loaded report previews
-- Inline status picker

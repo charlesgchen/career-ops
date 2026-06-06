@@ -12,14 +12,14 @@
 
 | File | Path | When |
 |------|------|------|
-| cv.md | `cv.md` (project root) | ALWAYS |
+| cv.tex | `cv.tex` (project root) | ALWAYS |
 | article-digest.md | `article-digest.md` (if exists) | ALWAYS (detailed proof points) |
 | profile.yml | `config/profile.yml` | ALWAYS (candidate identity and targets) |
 | _profile.md | `modes/_profile.md` | ALWAYS (user archetypes, narrative, negotiation) |
 | writing-samples/ | `writing-samples/` | When generating candidate-facing text — check `_profile.md` for cached `## Writing Style` first; only scan files if absent |
 
-**RULE: NEVER hardcode metrics from proof points.** Read them from cv.md + article-digest.md at evaluation time.
-**RULE: For article/project metrics, article-digest.md takes precedence over cv.md.**
+**RULE: NEVER hardcode metrics from proof points.** Read them from cv.tex + article-digest.md at evaluation time.
+**RULE: For article/project metrics, article-digest.md takes precedence over cv.tex.**
 **RULE: Read _profile.md AFTER this file. User customizations in _profile.md override defaults here.**
 
 ---
@@ -91,7 +91,7 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 ### NEVER
 
 1. Invent experience or metrics
-2. Modify cv.md or portfolio files
+2. Modify cv.tex or portfolio files
 3. Submit applications on behalf of the candidate
 4. Share phone number in generated messages
 5. Recommend comp below market rate
@@ -102,7 +102,7 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 ### ALWAYS
 
 0. **Cover letter:** If the form allows it, ALWAYS include one. Same visual design as CV. JD quotes mapped to proof points. 1 page max.
-1. Read cv.md, _profile.md, and article-digest.md (if exists) before evaluating
+1. Read cv.tex, _profile.md, and article-digest.md (if exists) before evaluating
 1b. **First evaluation of each session:** Run `node cv-sync-check.mjs`. If warnings, notify user.
 2. Detect the role archetype and adapt framing per _profile.md
 3. Cite exact lines from CV when matching
@@ -122,11 +122,10 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 | WebSearch | Comp research, trends, company culture, LinkedIn contacts, fallback for JDs |
 | WebFetch | Fallback for extracting JDs from static pages |
 | Playwright | Verify offers (browser_navigate + browser_snapshot). **NEVER 2+ agents with Playwright in parallel.** |
-| Read | cv.md, _profile.md, article-digest.md, cv-template.html |
-| Write | Temporary HTML for PDF, applications.md, reports .md |
-| Edit | Update tracker |
-| Canva MCP | Optional visual CV generation. Duplicate base design, edit text, export PDF. Requires `cv.canva_resume_design_id` in profile.yml. |
-| Bash | `node generate-pdf.mjs` |
+| Read | cv.tex, _profile.md, article-digest.md, cv-template.tex |
+| Write | Tailored `output/cv-{company}-{date}.tex`, applications.md, reports .md |
+| Edit | Update tracker; edit the tailored .tex copy (NEVER cv.tex itself) |
+| Bash | `node generate-latex.mjs <tailored.tex> <out.pdf>` |
 
 ### Time-to-offer priority
 - Working demo + metrics > perfection
@@ -226,7 +225,7 @@ These rules apply to ALL generated text that ends up in candidate-facing documen
 - "demonstrated ability to" / "best practices" (name the practice)
 
 ### Unicode normalization for ATS
-`generate-pdf.mjs` automatically normalizes em-dashes, smart quotes, and zero-width characters to ASCII equivalents for maximum ATS compatibility. But avoid generating them in the first place.
+When tailoring `cv.tex`, normalize em-dashes, smart quotes, and zero-width characters to plain ASCII (or proper LaTeX equivalents) for maximum ATS compatibility. Avoid generating them in the first place.
 
 ### Vary sentence structure
 - Don't start every bullet with the same verb

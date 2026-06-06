@@ -5,9 +5,10 @@
  * Checks all prerequisites and prints a pass/fail checklist.
  */
 
-import { existsSync, mkdirSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = __dirname;
@@ -63,15 +64,15 @@ async function checkPlaywright() {
 }
 
 function checkCv() {
-  if (existsSync(join(projectRoot, 'cv.md'))) {
-    return { pass: true, label: 'cv.md found' };
+  if (existsSync(join(projectRoot, 'cv.tex'))) {
+    return { pass: true, label: 'cv.tex found' };
   }
   return {
     pass: false,
-    label: 'cv.md not found',
+    label: 'cv.tex not found',
     fix: [
-      'Create cv.md in the project root with your CV in markdown',
-      'See examples/ for reference CVs',
+      'Create cv.tex in the project root with your LaTeX resume (your master source of truth)',
+      'See templates/cv-template.tex for the expected structure',
     ],
   };
 }
@@ -104,32 +105,25 @@ function checkPortals() {
   };
 }
 
-function checkFonts() {
-  const fontsDir = join(projectRoot, 'fonts');
-  if (!existsSync(fontsDir)) {
-    return {
-      pass: false,
-      label: 'fonts/ directory not found',
-      fix: 'The fonts/ directory is required for PDF generation',
-    };
-  }
-  try {
-    const files = readdirSync(fontsDir);
-    if (files.length === 0) {
-      return {
-        pass: false,
-        label: 'fonts/ directory is empty',
-        fix: 'The fonts/ directory must contain font files for PDF generation',
-      };
+function checkLatexCompiler() {
+  // The latex mode compiles cv.tex via tectonic (preferred) or pdflatex.
+  for (const bin of ['tectonic', 'pdflatex']) {
+    try {
+      execFileSync(bin, ['--version'], { stdio: 'ignore' });
+      return { pass: true, label: `LaTeX compiler ready (${bin})` };
+    } catch {
+      // try next
     }
-  } catch {
-    return {
-      pass: false,
-      label: 'fonts/ directory not readable',
-      fix: 'Check permissions on the fonts/ directory',
-    };
   }
-  return { pass: true, label: 'Fonts directory ready' };
+  return {
+    pass: false,
+    label: 'No LaTeX compiler found (tectonic or pdflatex)',
+    fix: [
+      'Install tectonic (recommended — auto-downloads packages): https://tectonic-typesetting.github.io',
+      'Or install a TeX distribution: MiKTeX (Windows) / TeX Live',
+      'Needed only for generating tailored CV PDFs from cv.tex',
+    ],
+  };
 }
 
 function checkAutoDir(name) {
@@ -160,7 +154,7 @@ async function main() {
     checkCv(),
     checkProfile(),
     checkPortals(),
-    checkFonts(),
+    checkLatexCompiler(),
     checkAutoDir('data'),
     checkAutoDir('output'),
     checkAutoDir('reports'),

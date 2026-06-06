@@ -48,23 +48,27 @@ async function main() {
     process.exit(1);
   }
 
+  // Fatal issues block compilation; warnings are advisory only. Since the user
+  // edits their own cv.tex (any LaTeX style), section names and the bundled
+  // template's custom commands are recommendations, not requirements.
   const issues = [];
+  const warnings = [];
 
-  // Check required sections
+  // Recommended sections (advisory — ATS-friendly headers used by the template)
   for (const pattern of REQUIRED_SECTIONS) {
     if (!new RegExp(pattern).test(content)) {
-      issues.push(`Missing section matching: ${pattern}`);
+      warnings.push(`No section matching: ${pattern}`);
     }
   }
 
-  // Check required commands are used
+  // Recommended commands (advisory — only relevant if using the bundled template)
   for (const cmd of REQUIRED_COMMANDS) {
     if (!new RegExp(cmd).test(content)) {
-      issues.push(`Missing command: ${cmd}`);
+      warnings.push(`Command not used: ${cmd}`);
     }
   }
 
-  // Check document structure
+  // Check document structure (fatal — won't compile otherwise)
   if (!content.includes('\\begin{document}')) {
     issues.push('Missing \\begin{document}');
   }
@@ -72,7 +76,7 @@ async function main() {
     issues.push('Missing \\end{document}');
   }
 
-  // Check for unresolved placeholders
+  // Check for unresolved placeholders (fatal — indicates incomplete tailoring)
   const unresolvedMatch = content.match(/\{\{[A-Z_]+\}\}/g);
   if (unresolvedMatch) {
     issues.push(`Unresolved placeholders: ${[...new Set(unresolvedMatch)].join(', ')}`);
@@ -90,9 +94,9 @@ async function main() {
     if (/\\resumeProjectHeading/.test(line)) projectHeadingCount++;
   }
 
-  // Check pdfgentounicode
+  // Check pdfgentounicode (advisory — improves ATS text extraction)
   if (!content.includes('\\pdfgentounicode=1')) {
-    issues.push('Missing \\pdfgentounicode=1 (ATS compatibility)');
+    warnings.push('Missing \\pdfgentounicode=1 (recommended for ATS text extraction)');
   }
 
   const fileInfo = await stat(absPath);
@@ -109,6 +113,7 @@ async function main() {
       projectHeadings: projectHeadingCount,
     },
     issues,
+    warnings,
     valid: issues.length === 0,
   };
 

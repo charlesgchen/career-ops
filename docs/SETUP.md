@@ -3,18 +3,16 @@
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed and configured
-- Node.js 18+ (for PDF generation and utility scripts)
-- (Optional) Go 1.21+ (for the dashboard TUI)
+- Node.js 18+ (for utility scripts and portal scanning)
+- A LaTeX compiler for CV PDFs: [tectonic](https://tectonic-typesetting.github.io) (recommended) or `pdflatex` via [MiKTeX](https://miktex.org/) (Windows) / TeX Live. (Or skip local install and compile `.tex` files on [Overleaf](https://www.overleaf.com).)
 
-## Quick Start (5 steps)
+## Quick Start
 
-### 1. Clone and install
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/santifer/career-ops.git
-cd career-ops
 npm install
-npx playwright install chromium   # Required for PDF generation
+npx playwright install chromium   # Used for offer liveness verification + scanning
 ```
 
 ### 2. Configure your profile
@@ -23,13 +21,15 @@ npx playwright install chromium   # Required for PDF generation
 cp config/profile.example.yml config/profile.yml
 ```
 
-Edit `config/profile.yml` with your personal details: name, email, target roles, narrative, proof points.
+Edit `config/profile.yml` with your details: name, email, target roles, narrative, proof points.
 
-### 3. Add your CV
+### 3. Add your CV (LaTeX)
 
-Create `cv.md` in the project root with your full CV in markdown format. This is the source of truth for all evaluations and PDFs.
+Put your resume as `cv.tex` in the project root. **This is the canonical source of truth** — the `latex` mode duplicates it per job and tailors the copy (it never edits `cv.tex` directly, and never invents skills you don't have).
 
-(Optional) Create `article-digest.md` with proof points from your portfolio projects/articles.
+If you don't have a `.tex` resume yet, start from `templates/cv-template.tex` or paste your current CV and have the agent convert it.
+
+(Optional) Create `article-digest.md` with proof points from your portfolio.
 
 ### 4. Configure portals
 
@@ -39,8 +39,8 @@ cp templates/portals.example.yml portals.yml
 
 Edit `portals.yml`:
 - Update `title_filter.positive` with keywords matching your target roles
-- Add companies you want to track in `tracked_companies`
-- Customize `search_queries` for your preferred job boards
+- Add companies you want to track
+- Customize `search_queries`
 
 ### 5. Start using
 
@@ -50,7 +50,7 @@ Open Claude Code in this directory:
 claude
 ```
 
-Then paste a job offer URL or description. Career-ops will automatically evaluate it, generate a report, create a tailored PDF, and track it.
+Then paste a job offer URL or description. Career-ops will evaluate it, generate a report, tailor your `cv.tex` into a PDF, and track it.
 
 ## Available Commands
 
@@ -59,7 +59,7 @@ Then paste a job offer URL or description. Career-ops will automatically evaluat
 | Evaluate an offer | Paste a URL or JD text |
 | Search for offers | `/career-ops scan` |
 | Process pending URLs | `/career-ops pipeline` |
-| Generate a PDF | `/career-ops pdf` |
+| Tailor your CV (PDF) | `/career-ops latex` |
 | Batch evaluate | `/career-ops batch` |
 | Check tracker status | `/career-ops tracker` |
 | Fill application form | `/career-ops apply` |
@@ -67,14 +67,7 @@ Then paste a job offer URL or description. Career-ops will automatically evaluat
 ## Verify Setup
 
 ```bash
-node cv-sync-check.mjs      # Check configuration
+node doctor.mjs              # Full prerequisite checklist
+node cv-sync-check.mjs       # Check configuration
 node verify-pipeline.mjs     # Check pipeline integrity
-```
-
-## Build Dashboard (Optional)
-
-```bash
-cd dashboard
-go build -o career-dashboard .
-./career-dashboard --path ..  # Opens TUI pipeline viewer
 ```

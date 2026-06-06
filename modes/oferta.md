@@ -22,7 +22,7 @@ Table with:
 
 ## Block B — Match with CV
 
-Read `cv.md`. Create a table with each JD requirement mapped to exact lines in the CV.
+Read `cv.tex`. Create a table with each JD requirement mapped to exact lines in the CV.
 
 **Adapted to the archetype:**
 - If FDE → prioritize delivery speed and client-facing proof points

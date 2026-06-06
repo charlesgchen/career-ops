@@ -4,7 +4,7 @@
  * cv-sync-check.mjs — Validates that the career-ops setup is consistent.
  *
  * Checks:
- * 1. cv.md exists
+ * 1. cv.tex exists
  * 2. config/profile.yml exists and has required fields
  * 3. No hardcoded metrics in _shared.md or batch/batch-prompt.md
  * 4. article-digest.md freshness (if exists)
@@ -20,14 +20,14 @@ const projectRoot = __dirname;
 const warnings = [];
 const errors = [];
 
-// 1. Check cv.md exists
-const cvPath = join(projectRoot, 'cv.md');
+// 1. Check cv.tex exists
+const cvPath = join(projectRoot, 'cv.tex');
 if (!existsSync(cvPath)) {
-  errors.push('cv.md not found in project root. Create it with your CV in markdown format.');
+  errors.push('cv.tex not found in project root. Create it with your LaTeX resume (master source of truth).');
 } else {
   const cvContent = readFileSync(cvPath, 'utf-8');
   if (cvContent.trim().length < 100) {
-    warnings.push('cv.md seems too short. Make sure it contains your full CV.');
+    warnings.push('cv.tex seems too short. Make sure it contains your full CV.');
   }
 }
 
@@ -66,7 +66,7 @@ for (const { path, name } of filesToCheck) {
     if (line.includes('NEVER hardcode') || line.includes('NUNCA hardcode') || line.startsWith('#') || line.startsWith('<!--')) continue;
     const matches = line.match(metricPattern);
     if (matches) {
-      warnings.push(`${name}:${i + 1} — Possible hardcoded metric: "${matches[0]}". Should this be read from cv.md/article-digest.md?`);
+      warnings.push(`${name}:${i + 1} — Possible hardcoded metric: "${matches[0]}". Should this be read from cv.tex/article-digest.md?`);
     }
   }
 }

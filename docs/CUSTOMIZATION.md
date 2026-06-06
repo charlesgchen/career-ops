@@ -33,14 +33,17 @@ Copy from `templates/portals.example.yml` and customize:
 3. **search_queries**: WebSearch queries for job boards (Ashby, Greenhouse, Lever)
 4. **tracked_companies**: Companies to check directly
 
-## CV Template (templates/cv-template.html)
+## CV (cv.tex)
 
-The HTML template uses these design tokens:
-- **Fonts**: Space Grotesk (headings) + DM Sans (body) -- self-hosted in `fonts/`
-- **Colors**: Cyan primary (`hsl(187,74%,32%)`) + Purple accent (`hsl(270,70%,45%)`)
-- **Layout**: Single-column, ATS-optimized
+Your `cv.tex` in the project root is the canonical resume — your own LaTeX, your own
+layout. The `latex` mode duplicates it per job and tailors the copy; it never edits
+`cv.tex` directly and never invents skills you don't have.
 
-To customize fonts/colors, edit the CSS in the template. Update font files in `fonts/` if switching fonts.
+- To change your resume's design, edit `cv.tex` directly (preamble, packages, spacing, colors).
+- If you don't have a `.tex` resume yet, `templates/cv-template.tex` is a clean,
+  Overleaf-compatible, single-column ATS-safe starting point.
+- Compilation needs `tectonic` (recommended) or `pdflatex` on PATH — or upload the
+  generated `.tex` to Overleaf.
 
 ## Negotiation Scripts (modes/_shared.md)
 

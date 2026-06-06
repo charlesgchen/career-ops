@@ -7,7 +7,7 @@ When the user asks to prep for an interview at a specific company+role, or when 
 1. **Company name** and **role title** (required)
 2. **Evaluation report** in `reports/` (if exists) — read for archetype, gaps, matched proof points
 3. **Story bank** at `interview-prep/story-bank.md` — read for existing prepared stories
-4. **CV** at `cv.md` + `article-digest.md` — read for proof points
+4. **CV** at `cv.tex` + `article-digest.md` — read for proof points
 5. **Profile** at `config/profile.yml` + `modes/_profile.md` — read for candidate context
 
 ## Step 1 — Research
@@ -114,7 +114,7 @@ If round structure is unknown, state that and provide the best available intel o
 
 ## Step 4 — Likely Questions (per audience)
 
-Group all discovered and inferred questions by the audience that asks them, not by question type. Within each audience, draft candidate-specific answers using `cv.md`, `article-digest.md`, `config/profile.yml`, and `modes/_profile.md`. **Never fabricate questions** — sourced questions must cite, inferred questions must be tagged `[inferred from JD]`.
+Group all discovered and inferred questions by the audience that asks them, not by question type. Within each audience, draft candidate-specific answers using `cv.tex`, `article-digest.md`, `config/profile.yml`, and `modes/_profile.md`. **Never fabricate questions** — sourced questions must cite, inferred questions must be tagged `[inferred from JD]`.
 
 If any of those profile files are missing, incomplete, or out-of-date, note the gap inline (e.g. "comp target unknown — defer to recruiter band") and proceed with what's available rather than blocking the prep. The mode's value is partial-but-honest output, not perfect-or-nothing.
 
@@ -128,7 +128,7 @@ The recruiter is screening for fit, not testing skill. Wrong-foot answers (vague
 - **Location / remote / visa** — answer derived from `config/profile.yml` location policy and the role's posted policy. Flag deal-breakers from `modes/_profile.md` so the recruiter can route correctly.
 - **Timeline / availability / notice period** — numbers, not vibes.
 - **Other processes in flight** — recommended framing only; never push the candidate to lie.
-- **Background red flags** — gaps, transitions, unusual elements from `cv.md` + `_profile.md`. Honest, specific, forward-looking framing — never defensive.
+- **Background red flags** — gaps, transitions, unusual elements from `cv.tex` + `_profile.md`. Honest, specific, forward-looking framing — never defensive.
 
 ### Audience: `hiring-manager`
 
@@ -170,7 +170,7 @@ Run this mapping **per audience pack** from Step 4 — same story can map differ
 - **partial**: story is adjacent, needs reframing
 - **none**: no existing story — flag for the user
 
-For each gap, suggest: "You need a story about {topic}. Consider: {specific experience from cv.md that could become a STAR+R story}."
+For each gap, suggest: "You need a story about {topic}. Consider: {specific experience from cv.tex that could become a STAR+R story}."
 
 If the user wants to draft missing stories, help them build STAR+R format and append to `interview-prep/story-bank.md`.
 
@@ -205,7 +205,7 @@ Things to say, do, and avoid — segmented by who's listening. The same fact can
 
 ### To the peer / technical panel
 
-- **What to lead with**: stack-relevant proof points from `cv.md` / `article-digest.md`.
+- **What to lead with**: stack-relevant proof points from `cv.tex` / `article-digest.md`.
 - **Things to avoid**: anti-patterns flagged in Glassdoor / Blind reviews specific to this company.
 - **Reverse questions**: on-call rotation, code review norms, deployment cadence, what surprised them when they joined.
 

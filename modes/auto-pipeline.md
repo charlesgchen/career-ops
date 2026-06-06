@@ -25,12 +25,9 @@ Execute the same as the `oferta` mode (read `modes/oferta.md` for all A-F blocks
 Save the full evaluation in `reports/{###}-{company-slug}-{YYYY-MM-DD}.md` (see format in `modes/oferta.md`).
 Include Block G in the saved report. Add **URL:** {url} and **Legitimacy:** {tier} to the report header.
 
-## Step 3 — Generate PDF
+## Step 3 — Generate the tailored CV (PDF)
 
-Read `config/profile.yml`. Check `cv.output_format`:
-
-- If `"latex"`, execute the full pipeline from `modes/latex.md`
-- Otherwise (default), execute the full pipeline from `modes/pdf.md`
+Execute the full pipeline from `modes/latex.md`: duplicate the user's `cv.tex`, tailor the copy to this job (NEVER invent skills), and compile it to PDF via `generate-latex.mjs`.
 
 ## Step 4 — Draft Application Answers (only if score >= 4.5)
 

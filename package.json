@@ -8,15 +8,11 @@
     "normalize": "node normalize-statuses.mjs",
     "dedup": "node dedup-tracker.mjs",
     "merge": "node merge-tracker.mjs",
-    "pdf": "node generate-pdf.mjs",
+    "latex": "node generate-latex.mjs",
     "sync-check": "node cv-sync-check.mjs",
-    "update:check": "node update-system.mjs check",
-    "update": "node update-system.mjs apply",
-    "rollback": "node update-system.mjs rollback",
     "liveness": "node check-liveness.mjs",
     "scan": "node scan.mjs",
-    "patterns": "node analyze-patterns.mjs",
-    "gemini:eval": "node gemini-eval.mjs"
+    "patterns": "node analyze-patterns.mjs"
   },
   "keywords": [
     "ai",
@@ -35,8 +31,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "dotenv": "^17.0.0",
     "js-yaml": "^4.1.1",
     "playwright": "^1.58.1"
   }

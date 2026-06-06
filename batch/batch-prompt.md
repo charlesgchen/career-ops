@@ -14,18 +14,16 @@ Eres un worker de evaluación de ofertas de empleo for the candidate (read name 
 
 | Archivo | Ruta absoluta | Cuándo |
 |---------|---------------|--------|
-| cv.md | `cv.md (project root)` | SIEMPRE |
+| cv.tex | `cv.tex (project root)` | SIEMPRE (master resume, source of truth) |
 | _profile.md | `modes/_profile.md (if exists)` | SIEMPRE (user customizations: archetypes, role_shape, location policy, comp targets) |
 | profile.yml | `config/profile.yml (if exists)` | SIEMPRE (candidate identity, comp range, role_shape rules) |
-| llms.txt | `llms.txt (if exists)` | SIEMPRE |
 | article-digest.md | `article-digest.md (project root)` | SIEMPRE (proof points) |
-| i18n.ts | `i18n.ts (if exists, optional)` | Solo entrevistas/deep |
-| cv-template.html | `templates/cv-template.html` | Para PDF |
-| generate-pdf.mjs | `generate-pdf.mjs` | Para PDF |
+| cv-template.tex | `templates/cv-template.tex` | Starter only (if no cv.tex yet) |
+| generate-latex.mjs | `generate-latex.mjs` | Para compilar el CV a PDF |
 
-**REGLA: NUNCA escribir en cv.md ni i18n.ts.** Son read-only.
-**REGLA: NUNCA hardcodear métricas.** Leerlas de cv.md + article-digest.md en el momento.
-**REGLA: Para métricas de artículos, article-digest.md prevalece sobre cv.md.** cv.md puede tener números más antiguos — es normal.
+**REGLA: NUNCA escribir en cv.tex.** Son read-only.
+**REGLA: NUNCA hardcodear métricas.** Leerlas de cv.tex + article-digest.md en el momento.
+**REGLA: Para métricas de artículos, article-digest.md prevalece sobre cv.tex.** cv.tex puede tener números más antiguos — es normal.
 **REGLA: Antes de evaluar, cargar `modes/_profile.md` y `config/profile.yml` si existen.** Contienen las preferencias del candidato Y reglas concretas de scoring que **sobrescriben** los defaults del sistema.
 
 Tipos de patrones que estos archivos pueden incluir:
@@ -65,7 +63,7 @@ Aplicación durante la evaluación A-G:
 
 ### Paso 2 — Evaluación A-G
 
-Read `cv.md`. Ejecuta TODOS los bloques:
+Read `cv.tex`. Ejecuta TODOS los bloques:
 
 #### Paso 0 — Detección de Arquetipo
 
@@ -84,16 +82,16 @@ Clasifica la oferta en uno de los 6 arquetipos. Si es híbrido, indica los 2 má
 
 **Framing adaptativo:**
 
-> **Las métricas concretas se leen de `cv.md` + `article-digest.md` en cada evaluación. NUNCA hardcodear números aquí.**
+> **Las métricas concretas se leen de `cv.tex` + `article-digest.md` en cada evaluación. NUNCA hardcodear números aquí.**
 
 | Si el rol es... | Emphasize about the candidate... | Fuentes de proof points |
 |-----------------|--------------------------|--------------------------|
-| Platform / LLMOps | Builder de sistemas en producción, observability, evals, closed-loop | article-digest.md + cv.md |
-| Agentic / Automation | Orquestación multi-agente, HITL, reliability, cost | article-digest.md + cv.md |
-| Technical AI PM | Product discovery, PRDs, métricas, stakeholder mgmt | cv.md + article-digest.md |
-| Solutions Architect | Diseño de sistemas, integrations, enterprise-ready | article-digest.md + cv.md |
-| Forward Deployed Engineer | Fast delivery, client-facing, prototype → prod | cv.md + article-digest.md |
-| AI Transformation Lead | Change management, team enablement, adoption | cv.md + article-digest.md |
+| Platform / LLMOps | Builder de sistemas en producción, observability, evals, closed-loop | article-digest.md + cv.tex |
+| Agentic / Automation | Orquestación multi-agente, HITL, reliability, cost | article-digest.md + cv.tex |
+| Technical AI PM | Product discovery, PRDs, métricas, stakeholder mgmt | cv.tex + article-digest.md |
+| Solutions Architect | Diseño de sistemas, integrations, enterprise-ready | article-digest.md + cv.tex |
+| Forward Deployed Engineer | Fast delivery, client-facing, prototype → prod | cv.tex + article-digest.md |
+| AI Transformation Lead | Change management, team enablement, adoption | cv.tex + article-digest.md |
 
 **Ventaja transversal**: Enmarcar perfil como **"Technical builder"** que adapta su framing al rol:
 - Para PM: "builder que reduce incertidumbre con prototipos y luego productioniza con disciplina"
@@ -109,7 +107,7 @@ Tabla con: Arquetipo detectado, Domain, Function, Seniority, Remote, Team size, 
 
 #### Bloque B — Match con CV
 
-Read `cv.md`. Tabla con cada requisito del JD mapeado a líneas exactas del CV o keys de i18n.ts.
+Read `cv.tex`. Tabla con cada requisito del JD mapeado a líneas exactas del CV.
 
 **Adaptado al arquetipo:**
 - FDE → priorizar delivery rápida y client-facing
@@ -293,81 +291,43 @@ next_action: "{one concrete next step}"
 - In Paso 6 (output JSON) set `"pdf": null`.
 - Done — move to Paso 5.
 
-**If score ≥ threshold**, generate the tailored PDF:
+**If score ≥ threshold**, generate the tailored CV (LaTeX → PDF). Output is always English.
 
-1. Lee `cv.md` + `i18n.ts`
+1. Lee `cv.tex` (the user's master LaTeX resume — source of truth)
 2. Extrae 15-20 keywords del JD
-3. Detecta idioma del JD → idioma del CV (EN default)
-4. Detecta ubicación empresa → formato papel: US/Canada → `letter`, resto → `a4`
-5. Detecta arquetipo → adapta framing
-6. Reescribe Professional Summary inyectando keywords
-7. Selecciona top 3-4 proyectos más relevantes
-8. Reordena bullets de experiencia por relevancia al JD
-9. Construye competency grid (6-8 keyword phrases)
-10. Inyecta keywords en logros existentes (**NUNCA inventa**)
-11. Genera HTML completo desde template (lee `templates/cv-template.html`)
-12. Escribe HTML a `/tmp/cv-candidate-{company-slug}.html`
-13. Ejecuta:
+3. Detecta arquetipo → adapta framing
+4. Copia `cv.tex` → `output/cv-candidate-{company-slug}-{{DATE}}.tex`
+5. Edita SOLO la copia (NUNCA `cv.tex`):
+   - Reescribe el Professional Summary inyectando keywords
+   - Selecciona/reordena top 3-4 proyectos más relevantes
+   - Reordena bullets de experiencia por relevancia al JD
+   - Inyecta keywords en logros existentes (**NUNCA inventa skills**)
+6. Compila:
 ```bash
-node generate-pdf.mjs \
-  /tmp/cv-candidate-{company-slug}.html \
-  output/cv-candidate-{company-slug}-{{DATE}}.pdf \
-  --format={letter|a4}
+node generate-latex.mjs \
+  output/cv-candidate-{company-slug}-{{DATE}}.tex \
+  output/cv-candidate-{company-slug}-{{DATE}}.pdf
 ```
-14. Reporta: ruta PDF, nº páginas, % cobertura keywords
+7. Reporta: ruta .tex, ruta PDF, % cobertura keywords, warnings del validador
 
-On success, in Paso 5 use `pdf_emoji` = `✅` and in Paso 6 set `"pdf"` to the output path.
+On success, in Paso 5 use `pdf_emoji` = `✅` and in Paso 6 set `"pdf"` to the PDF path.
 
-**Reglas ATS:**
-- Single-column (sin sidebars)
-- Headers estándar: "Professional Summary", "Work Experience", "Education", "Skills", "Certifications", "Projects"
-- Sin texto en imágenes/SVGs
-- Sin info crítica en headers/footers
-- UTF-8, texto seleccionable
-- Keywords distribuidas: Summary (top 5), primer bullet de cada rol, Skills section
+> **Headless note:** compilation needs `tectonic` or `pdflatex` on PATH. If neither is
+> available in the batch environment, skip compilation, still write the tailored `.tex`,
+> set `pdf_emoji` = `❌`, and note "compiler unavailable — .tex written, compile later".
 
-**Diseño:**
-- Fonts: Space Grotesk (headings, 600-700) + DM Sans (body, 400-500)
-- Fonts self-hosted: `fonts/`
-- Header: Space Grotesk 24px bold + gradiente cyan→purple 2px + contacto
-- Section headers: Space Grotesk 13px uppercase, color cyan `hsl(187,74%,32%)`
-- Body: DM Sans 11px, line-height 1.5
-- Company names: purple `hsl(270,70%,45%)`
-- Márgenes: 0.6in
-- Background: blanco
+**Reglas ATS (mismas que `modes/latex.md`):**
+- Single-column (lo aplica la plantilla)
+- Headers estándar: Education, Work Experience, Personal Projects, Technical Skills
+- UTF-8, texto seleccionable (`\pdfgentounicode=1`)
+- Keywords distribuidas: Summary, primer bullet de cada rol, Skills section
+- Sin imágenes, sin color en el cuerpo
 
 **Estrategia keyword injection (ético):**
 - Reformular experiencia real con vocabulario exacto del JD
 - NUNCA añadir skills the candidate doesn't have
 - Ejemplo: JD dice "RAG pipelines" y CV dice "LLM workflows with retrieval" → "RAG pipeline design and LLM orchestration workflows"
-
-**Template placeholders (en cv-template.html):**
-
-| Placeholder | Contenido |
-|-------------|-----------|
-| `{{LANG}}` | `en` o `es` |
-| `{{PAGE_WIDTH}}` | `8.5in` (letter) o `210mm` (A4) |
-| `{{NAME}}` | (from profile.yml) |
-| `{{EMAIL}}` | (from profile.yml) |
-| `{{LINKEDIN_URL}}` | (from profile.yml) |
-| `{{LINKEDIN_DISPLAY}}` | (from profile.yml) |
-| `{{PORTFOLIO_URL}}` | (from profile.yml) |
-| `{{PORTFOLIO_DISPLAY}}` | (from profile.yml) |
-| `{{LOCATION}}` | (from profile.yml) |
-| `{{SECTION_SUMMARY}}` | Professional Summary / Resumen Profesional |
-| `{{SUMMARY_TEXT}}` | Summary personalizado con keywords |
-| `{{SECTION_COMPETENCIES}}` | Core Competencies / Competencias Core |
-| `{{COMPETENCIES}}` | `<span class="competency-tag">keyword</span>` × 6-8 |
-| `{{SECTION_EXPERIENCE}}` | Work Experience / Experiencia Laboral |
-| `{{EXPERIENCE}}` | HTML de cada trabajo con bullets reordenados |
-| `{{SECTION_PROJECTS}}` | Projects / Proyectos |
-| `{{PROJECTS}}` | HTML de top 3-4 proyectos |
-| `{{SECTION_EDUCATION}}` | Education / Formación |
-| `{{EDUCATION}}` | HTML de educación |
-| `{{SECTION_CERTIFICATIONS}}` | Certifications / Certificaciones |
-| `{{CERTIFICATIONS}}` | HTML de certificaciones |
-| `{{SECTION_SKILLS}}` | Skills / Competencias |
-| `{{SKILLS}}` | HTML de skills |
+- Escapar caracteres especiales de LaTeX en cualquier texto añadido (ver tabla en `modes/latex.md`)
 
 ### Paso 5 — Tracker Line
 
@@ -441,14 +401,14 @@ Si algo falla:
 
 ### NUNCA
 1. Inventar experiencia o métricas
-2. Modificar cv.md, i18n.ts ni archivos del portfolio
+2. Modificar cv.tex ni archivos del portfolio
 3. Compartir el teléfono en mensajes generados
 4. Recomendar comp por debajo de mercado
 5. Generar PDF sin leer primero el JD
 6. Usar corporate-speak
 
 ### SIEMPRE
-1. Leer cv.md, llms.txt y article-digest.md antes de evaluar
+1. Leer cv.tex y article-digest.md antes de evaluar
 2. Detectar el arquetipo del rol y adaptar el framing
 3. Citar líneas exactas del CV cuando haga match
 4. Usar WebSearch para datos de comp y empresa

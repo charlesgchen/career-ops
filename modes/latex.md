@@ -1,102 +1,68 @@
-# Mode: latex — LaTeX/Overleaf CV Export
+# Mode: latex — Tailor the user's LaTeX CV (source of truth)
 
-Export a tailored, ATS-optimized CV as a `.tex` file and compile it to PDF via `tectonic` or `pdflatex`.
+The user's **`cv.tex` in the project root is the canonical resume** — their own LaTeX,
+their own layout. This mode does NOT regenerate a CV from markdown. It duplicates
+`cv.tex`, edits the copy in place to tailor it to a specific job, and compiles it to PDF.
+
+> This is the only CV/PDF path in this setup. `cv.md`, the HTML template, and the
+> markdown→PDF flow have been removed.
 
 ## Pipeline
 
-1. Read `cv.md` as source of truth
-2. Read `config/profile.yml` for candidate identity and contact info
-3. Ask the user for the JD if not already in context (text or URL)
-4. Extract 15-20 keywords from the JD
-5. Detect JD language → CV language (EN default)
-6. Detect role archetype → adapt framing
-7. Rewrite Professional Summary injecting JD keywords (same rules as `pdf` mode — NEVER invent skills)
-8. Select top 3-4 most relevant projects for the offer
-9. Reorder experience bullets by JD relevance
-10. Inject keywords naturally into existing achievements
-11. Generate the `.tex` file using `templates/cv-template.tex`
-12. Write to `output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex`
-13. Run: `node generate-latex.mjs output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf`
-14. Report: .tex path, .pdf path, file sizes, section count, keyword coverage %
+1. Read `cv.tex` (the master resume — source of truth).
+2. Read `config/profile.yml` for candidate identity (used for the output filename).
+3. Get the JD if not already in context (text or URL).
+4. Extract 15-20 keywords from the JD.
+5. Detect the role archetype → adapt framing (see `modes/_profile.md`).
+6. Copy `cv.tex` → `output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex`.
+7. **Edit the copy in place** (NEVER edit `cv.tex` itself):
+   - Rewrite the Professional Summary, injecting JD keywords (rules below).
+   - Reorder experience bullets so the most JD-relevant come first.
+   - Reorder/select projects so the top 3-4 most relevant for the offer lead.
+   - Inject JD vocabulary into existing achievements — reword, never invent.
+8. Compile: `node generate-latex.mjs output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf`
+9. Report: `.tex` path, `.pdf` path, file sizes, keyword coverage %, and any warnings from the validator.
 
-**Requires:** `tectonic` (preferred — `brew install tectonic`, auto-downloads packages) or `pdflatex` (MiKTeX / TeX Live) on PATH.
+**Requires:** `tectonic` (preferred — auto-downloads packages) or `pdflatex` (MiKTeX / TeX Live) on PATH.
 
-## Template Placeholders
+## Ethical Rule #1 — NEVER invent skills (HARD RULE)
 
-The template at `templates/cv-template.tex` uses `{{PLACEHOLDER}}` syntax:
+**The tailored CV must contain ZERO skills, tools, technologies, certifications, or
+experience that are not already in the user's `cv.tex`.** Tailoring means *rewording
+and reordering what is already there* using the JD's vocabulary — never adding new
+claims.
 
-| Placeholder | Source |
-|-------------|--------|
-| `{{NAME}}` | `profile.yml → candidate.full_name` |
-| `{{CONTACT_LINE}}` | Phone / City, State / Visa status — built from profile.yml |
-| `{{EMAIL_URL}}` | Raw email for `mailto:` URL — must not be LaTeX-escaped (from profile.yml) |
-| `{{EMAIL_DISPLAY}}` | Escaped email for display text — LaTeX-special chars like `_` must be escaped, e.g. `first\_name@example.com` |
-| `{{LINKEDIN_URL}}` | Full URL with scheme for `\href{}`: e.g. `https://linkedin.com/in/username`. If `profile.yml` stores a bare host+path (no scheme), prepend `https://` before substitution. |
-| `{{LINKEDIN_DISPLAY}}` | Display text only (no scheme): `linkedin.com/in/username` |
-| `{{GITHUB_URL}}` | Full URL with scheme for `\href{}`: e.g. `https://github.com/username`. If `profile.yml` stores a bare host+path, prepend `https://`. |
-| `{{GITHUB_DISPLAY}}` | Display text only (no scheme): `github.com/username` |
-| `{{EDUCATION}}` | LaTeX `\resumeSubheading` blocks from cv.md Education section |
-| `{{EXPERIENCE}}` | LaTeX `\resumeSubheading` + `\resumeItem` blocks — reordered bullets |
-| `{{PROJECTS}}` | LaTeX `\resumeProjectHeading` + `\resumeItem` blocks — top 3-4 selected |
-| `{{SKILLS}}` | LaTeX `\textbf{Category}{: items}` lines from cv.md Technical Skills |
+- Do NOT add a tool/framework/language just because the JD asks for it.
+- Do NOT inflate scope, seniority, metrics, or responsibilities.
+- If the JD wants something the user doesn't have, leave it out — surface the gap to
+  the user instead of papering over it on the resume.
+- When in doubt, keep the user's original wording.
 
-## LaTeX Content Generation Rules
+Why this matters: removing fabricated skills by hand afterward is painful and risky
+(a missed one is a lie on a resume). Getting it right the first time is the whole point.
 
-### Education
+## Editing Rules (CRITICAL)
 
-Each entry becomes:
+- **Never modify `cv.tex`.** Always work on the dated copy in `output/`.
+- **Preserve the user's LaTeX structure.** Keep their preamble, packages, custom
+  commands, and section layout exactly as they wrote them. You are editing *content*
+  (summary text, bullet order, bullet wording), not redesigning the document.
+- **Only edit text inside the existing LaTeX commands.** Don't introduce new packages
+  or restructure the document unless the user asks.
+- Text you write must be valid LaTeX — escape special characters in any content you
+  add or change (see table below). Do not escape LaTeX commands themselves.
 
-```latex
-    \resumeSubheading
-    {Institution}{City, State}
-    {Degree}{Date Range}
-```
+## Keyword Injection Strategy (ethical — same as the old pdf rules)
 
-If coursework exists, add:
+- NEVER add skills, tools, or experience the candidate doesn't have.
+- Only reformulate existing experience using the JD's vocabulary.
+- Examples:
+  - JD says "RAG pipelines" → reword "LLM workflows with retrieval" to "RAG pipeline design"
+  - JD says "MLOps" → reword "observability, evals" to "MLOps and observability"
+- Distribute keywords naturally: the Professional Summary, the first bullet of each
+  role, and (if present) the skills section.
 
-```latex
-        \resumeItemListStart
-            \resumeItem{\textbf{Coursework:} Course1, Course2, ...}
-        \resumeItemListEnd
-```
-
-### Experience
-
-Each role becomes:
-
-```latex
-    \resumeSubheading
-      {Company}{Date Range}
-      {Role Title}{Location}
-      \resumeItemListStart
-        \resumeItem{Bullet text with JD keywords injected}
-        ...
-      \resumeItemListEnd
-```
-
-### Projects
-
-Each project becomes:
-
-```latex
-\resumeProjectHeading{Project Name \emph{$|$ Affiliation/Context}}{Date}
-\resumeItemListStart
-    \resumeItem{Bullet text}
-    ...
-\resumeItemListEnd
-```
-
-### Skills
-
-```latex
-    \textbf{Languages}{: C, C++, Java, ...} \\
-    \textbf{Frameworks \& ML}{: PyTorch, LangChain, ...} \\
-    \textbf{Tools \& Cloud}{: Docker, Kubernetes, ...}
-```
-
-## LaTeX Escaping (CRITICAL)
-
-All text content MUST be escaped for LaTeX before insertion:
+## LaTeX Escaping (for content you add/change)
 
 | Character | Escape |
 |-----------|--------|
@@ -113,35 +79,21 @@ All text content MUST be escaped for LaTeX before insertion:
 | `±` | `$\pm$` |
 | `→` | `$\rightarrow$` |
 
-**Exception:** Do NOT escape LaTeX commands themselves (`\resumeItem`, `\textbf`, etc.) — only user-supplied text content.
+**Exception:** Do NOT escape LaTeX commands (`\resumeItem`, `\textbf`, etc.) — only text.
 
-**Exception for URLs:** Do NOT escape text inside `\href{URL}{...}` first arguments. The URL must remain raw (or RFC 3986 percent-encoded). Only escape the *display text* (second argument). For example:
-```latex
-\href{https://example.com/path_with_underscores}{Example\_Display}
-```
+**Exception for URLs:** Inside `\href{URL}{display}`, leave the URL (first arg) raw or
+RFC 3986 percent-encoded; escape only the display text (second arg).
 
-## ATS Rules (same as pdf mode)
+## Validator notes
 
-- Single-column layout (enforced by template)
-- Standard section headers: Education, Work Experience, Personal Projects, Technical Skills
-- UTF-8, machine-readable via `\pdfgentounicode=1`
-- Keywords distributed: first bullet of each role, skills section
-- No images, no graphics, no color in body text
+`generate-latex.mjs` enforces only what affects compilation as **errors**
+(`\begin{document}`/`\end{document}` present, no unresolved `{{PLACEHOLDERS}}`).
+Section names, the bundled template's custom commands, and `\pdfgentounicode=1` are
+reported as **warnings** — advisory ATS hints, not failures — so your own `cv.tex`
+style compiles fine.
 
-## Keyword Injection Strategy
+## If the user has no `cv.tex` yet
 
-Same ethical rules as `modes/pdf.md`:
-- NEVER add skills the candidate doesn't have
-- Only reformulate existing experience using JD vocabulary
-- Examples:
-  - JD says "RAG pipelines" → reword "LLM workflows with retrieval" to "RAG pipeline design"
-  - JD says "MLOps" → reword "observability, evals" to "MLOps and observability"
-
-## Overleaf Compatibility
-
-The generated `.tex` file uses only standard CTAN packages (no custom or bundled dependencies):
-
-- `latexsym`, `fullpage`, `titlesec`, `marvosym`, `color`, `verbatim`, `enumitem`
-- `hyperref`, `fancyhdr`, `babel`, `tabularx`, `fontawesome5`, `multicol`, `glyphtounicode`
-
-Upload the `.tex` file directly to Overleaf — compiles with no extra configuration.
+`templates/cv-template.tex` is a clean, ATS-friendly starting point (single column,
+standard sections, Overleaf-compatible CTAN packages). Offer to seed `cv.tex` from it,
+or to convert a CV they paste into a `.tex` resume — then this mode edits that going forward.

@@ -1,6 +1,8 @@
 # Data Contract
 
-This document defines which files belong to the **system** (auto-updatable) and which belong to the **user** (never touched by updates).
+This document defines which files belong to the **system** and which belong to the **user**.
+
+> **Note:** Auto-updates are disabled in this customized setup. The User/System split below is kept as documentation of what is *your* personalization (edit freely) versus *system logic* — not because anything is pulled from upstream anymore.
 
 ## User Layer (NEVER auto-updated)
 
@@ -8,7 +10,7 @@ These files contain your personal data, customizations, and work product. Update
 
 | File | Purpose |
 |------|---------|
-| `cv.md` | Your CV in markdown |
+| `cv.tex` | Your LaTeX resume (canonical source of truth) |
 | `config/profile.yml` | Your identity, targets, comp range |
 | `modes/_profile.md` | Your archetypes, narrative, negotiation scripts |
 | `article-digest.md` | Your proof points from portfolio |
@@ -31,7 +33,7 @@ These files contain system logic, scripts, templates, and instructions that impr
 |------|---------|
 | `modes/_shared.md` | Scoring system, global rules, tools |
 | `modes/oferta.md` | Evaluation mode instructions |
-| `modes/pdf.md` | PDF generation instructions |
+| `modes/latex.md` | LaTeX CV tailoring instructions |
 | `modes/scan.md` | Portal scanner instructions |
 | `modes/batch.md` | Batch processing instructions |
 | `modes/apply.md` | Application assistant instructions |
@@ -45,19 +47,13 @@ These files contain system logic, scripts, templates, and instructions that impr
 | `modes/training.md` | Training evaluation instructions |
 | `modes/patterns.md` | Pattern analysis instructions |
 | `modes/followup.md` | Follow-up cadence instructions |
-| `modes/de/*` | German language modes |
-| `modes/fr/*` | French language modes |
-| `modes/ja/*` | Japanese language modes |
-| `modes/pt/*` | Portuguese language modes |
-| `modes/ru/*` | Russian language modes |
+| `modes/interview-prep.md` | Interview prep instructions |
 | `CLAUDE.md` | Agent instructions |
 | `AGENTS.md` | Codex instructions |
 | `*.mjs` | Utility scripts |
 | `batch/batch-prompt.md` | Batch worker prompt |
 | `batch/batch-runner.sh` | Batch orchestrator |
-| `dashboard/*` | Go TUI dashboard |
-| `templates/*` | Base templates |
-| `fonts/*` | Self-hosted fonts |
+| `templates/*` | Base templates (incl. `cv-template.tex`) |
 | `.claude/skills/*` | Skill definitions |
 | `docs/*` | Documentation |
 | `VERSION` | Current version number |
