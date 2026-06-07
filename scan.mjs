@@ -121,12 +121,19 @@ function resolveProvider(entry, providers, { skipIds = [] } = {}) {
 function buildTitleFilter(titleFilter) {
   const positive = (titleFilter?.positive || []).map(k => k.toLowerCase());
   const negative = (titleFilter?.negative || []).map(k => k.toLowerCase());
+  // `require` is an AND group: when non-empty, a title must contain at least one
+  // of these IN ADDITION to matching `positive`. Empty/absent => no-op (fully
+  // backward compatible). Use it to constrain a broad positive list — e.g.
+  // require ["Intern", "Co-op"] to keep only internship/co-op postings while
+  // still requiring a role match in `positive`.
+  const required = (titleFilter?.require || []).map(k => k.toLowerCase());
 
   return (title) => {
     const lower = title.toLowerCase();
     const hasPositive = positive.length === 0 || positive.some(k => lower.includes(k));
+    const hasRequired = required.length === 0 || required.some(k => lower.includes(k));
     const hasNegative = negative.some(k => lower.includes(k));
-    return hasPositive && !hasNegative;
+    return hasPositive && hasRequired && !hasNegative;
   };
 }
 

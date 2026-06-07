@@ -28,10 +28,13 @@ Also update the "Adaptive Framing" table to map YOUR specific projects to each a
 
 Copy from `templates/portals.example.yml` and customize:
 
-1. **title_filter.positive**: Keywords matching your target roles
-2. **title_filter.negative**: Tech stacks or domains to exclude
-3. **search_queries**: WebSearch queries for job boards (Ashby, Greenhouse, Lever)
-4. **tracked_companies**: Companies to check directly
+1. **title_filter.positive**: Keywords matching your target roles (≥1 must match)
+2. **title_filter.require** (optional): An AND group — when set, a title must match one of these *in addition to* `positive`. Use it to narrow a broad role filter to one slice, e.g. interns only: keep your ML/research/SWE positives and add `require: ["Intern", "Co-op", "Internship", "Working Student", "Summer"]`.
+3. **title_filter.negative**: Tech stacks or domains to exclude (any match rejects)
+4. **search_queries**: WebSearch queries for job boards (Ashby, Greenhouse, Lever)
+5. **tracked_companies**: Companies to check directly
+
+> Note: `negative` can't reliably exclude full-time roles, because full-time titles ("Machine Learning Engineer") contain no blacklist keyword — they pass on the positive match. To restrict to interns/co-ops, use `require`, not `negative`.
 
 ## CVs (base résumés, one per track)
 

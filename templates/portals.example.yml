@@ -65,7 +65,10 @@
 
 # -- Title filter --
 # The scanner uses these keywords to decide if a title is relevant.
-# At least 1 positive must match AND 0 negatives must match (case-insensitive).
+# A title passes when: >=1 positive matches, AND (if `require` is set) >=1
+# require keyword matches, AND 0 negatives match (all case-insensitive substring
+# tests). `require` is the way to AND a second condition onto your positives —
+# e.g. keep ML/research/SWE roles but ONLY internships/co-ops (see below).
 
 title_filter:
   positive:
@@ -134,6 +137,20 @@ title_filter:
     - "Oracle EBS"
     - "Mainframe"
     - "COBOL"
+  # -- Required group (optional, AND) --
+  # When present and non-empty, a title must ALSO contain one of these to pass,
+  # on top of matching `positive`. Leave absent/empty to disable (default).
+  # Uncomment to keep ONLY internship / co-op postings:
+  # require:
+  #   - "Intern"
+  #   - "Internship"
+  #   - "Co-op"
+  #   - "Coop"
+  #   - "Co Op"
+  #   - "Working Student"
+  #   - "Placement"
+  #   - "Summer"        # catches "Summer Analyst", "Summer 2026", etc.
+  #   - "Apprentice"
   seniority_boost:
     # These prefixes add relevance but are not required
     - "Senior"
