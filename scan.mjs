@@ -25,6 +25,10 @@
  *   node scan.mjs --dry-run        # preview without writing files
  *   node scan.mjs --company Cohere # scan a single company
  *   node scan.mjs --verify         # Playwright-check each new URL; drop expired postings
+ *   node scan.mjs --regroup        # reorganize pipeline.md by country, no scan
+ *
+ * New offers are written to pipeline.md grouped under `### --- Country ---`
+ * separators (country inferred from each posting's location string).
  */
 
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
@@ -180,6 +184,78 @@ export function buildLocationFilter(locationFilter) {
   };
 }
 
+// ── Country inference ───────────────────────────────────────────────
+// Best-effort country label for a freeform provider location string, used only
+// to group the printed "New offers" summary. Provider data is unstructured
+// ("London, UK", "Markham, ON, Canada", "Santa Clara, CA", "Remote in USA",
+// "Canada"), so this is heuristic — explicit country names first, then a
+// trailing US-state / Canadian-province code. Anything unmatched buckets under
+// 'Other'. Extend COUNTRY_KEYWORDS to recognize more regions.
+
+const US_STATES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL',
+  'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT',
+  'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
+  'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+]);
+
+const CA_PROVINCES = new Set([
+  'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT',
+]);
+
+// [regex, canonical label] — tested (in order) against the lowercased location.
+// Word boundaries avoid false hits (e.g. "us" inside "Houston"). First match wins.
+// Each entry lists the country name plus a few well-known, unambiguous cities so
+// bare-city strings ("Paris", "Copenhagen") still resolve. Ambiguous cities are
+// intentionally omitted — e.g. "London" alone could be UK or London, ON.
+const COUNTRY_KEYWORDS = [
+  [/\bunited states\b|\bu\.?s\.?a\.?\b|\bremote in usa\b|\bsan francisco\b|\bbay area\b|\bnew york\b|\bnyc\b|\bseattle\b|\bsilicon valley\b/, 'United States'],
+  [/\bcanada\b/, 'Canada'],
+  [/\bunited kingdom\b|\bengland\b|\bscotland\b|\bwales\b|\bu\.?k\.?\b/, 'United Kingdom'],
+  [/\bireland\b|\bdublin\b/, 'Ireland'],
+  [/\bfrance\b|\bparis\b/, 'France'],
+  [/\bgermany\b|\bberlin\b|\bmunich\b/, 'Germany'],
+  [/\bnetherlands\b|\bamsterdam\b/, 'Netherlands'],
+  [/\bswitzerland\b|\bzurich\b/, 'Switzerland'],
+  [/\bspain\b|\bmadrid\b|\bbarcelona\b/, 'Spain'],
+  [/\bdenmark\b|\bcopenhagen\b/, 'Denmark'],
+  [/\bsweden\b|\bstockholm\b/, 'Sweden'],
+  [/\bfinland\b|\bhelsinki\b|\btampere\b/, 'Finland'],
+  [/\bnorway\b|\boslo\b/, 'Norway'],
+  [/\bpoland\b|\bwarsaw\b|\bkrak[oó]w\b/, 'Poland'],
+  [/\bserbia\b|\bbelgrade\b/, 'Serbia'],
+  [/\bitaly\b|\bmilan\b|\brome\b/, 'Italy'],
+  [/\baustria\b|\bvienna\b/, 'Austria'],
+  [/\bbelgium\b|\bbrussels\b/, 'Belgium'],
+  [/\bindia\b|\bbangalore\b|\bbengaluru\b/, 'India'],
+  [/\bsingapore\b/, 'Singapore'],
+  [/\baustralia\b|\bsydney\b|\bmelbourne\b/, 'Australia'],
+  [/\bisrael\b|\btel aviv\b/, 'Israel'],
+];
+
+export function countryForLocation(location) {
+  if (typeof location !== 'string' || location.trim() === '') return 'Other';
+  const raw = location.trim();
+  const lower = raw.toLowerCase();
+
+  // 1. Explicit country name / spelling anywhere in the string (most reliable).
+  for (const [re, country] of COUNTRY_KEYWORDS) {
+    if (re.test(lower)) return country;
+  }
+
+  // 2. Trailing state/province code (e.g. "Santa Clara, CA"). Scan comma-split
+  //    tokens from the end so "City, CA" resolves even with extra prefix parts.
+  //    Strip non-letters so "Washington, D.C." → "DC" still matches.
+  const tokens = raw.split(',').map(t => t.trim()).filter(Boolean);
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const code = tokens[i].toUpperCase().replace(/[^A-Z]/g, '');
+    if (US_STATES.has(code)) return 'United States';
+    if (CA_PROVINCES.has(code)) return 'Canada';
+  }
+
+  return 'Other';
+}
+
 // ── Dedup ───────────────────────────────────────────────────────────
 
 function loadSeenUrls() {
@@ -231,35 +307,112 @@ function loadSeenCompanyRoles() {
 
 // ── Pipeline writer ─────────────────────────────────────────────────
 
-function appendToPipeline(offers) {
-  if (offers.length === 0) return;
+// Map every URL in scan-history.tsv → its recorded location. Lets us recover a
+// country for pipeline entries already on disk (their checkbox lines carry only
+// url | company | title — no location). New offers supply their own location.
+function loadLocationsByUrl() {
+  const map = new Map();
+  if (!existsSync(SCAN_HISTORY_PATH)) return map;
+  const lines = readFileSync(SCAN_HISTORY_PATH, 'utf-8').split('\n');
+  for (const line of lines.slice(1)) { // skip header
+    if (!line.trim()) continue;
+    const cols = line.split('\t');
+    const url = cols[0];
+    const location = cols[6]; // 7th column (may be absent in legacy 6-col rows)
+    if (url && location) map.set(url, location);
+  }
+  return map;
+}
 
-  let text = readFileSync(PIPELINE_PATH, 'utf-8');
+// Sort country labels: largest group first, ties alphabetical, 'Other' pinned last.
+function sortCountriesBySize(byCountry) {
+  return [...byCountry.keys()].sort((a, b) => {
+    if ((a === 'Other') !== (b === 'Other')) return a === 'Other' ? 1 : -1;
+    const diff = byCountry.get(b).length - byCountry.get(a).length;
+    return diff !== 0 ? diff : a.localeCompare(b);
+  });
+}
 
-  // Find "## Pendientes" section and append after it
+// Rewrite the "## Pendientes" section as country-grouped blocks, each introduced
+// by a `### --- Country ---` separator. Idempotent: existing entries (with their
+// checkbox state) are re-read and regrouped every call, so old separators are
+// dropped and rebuilt — no fragmentation or duplicate headers accumulate.
+// Sections other than Pendientes (e.g. ## Procesadas) are preserved untouched.
+// Passing no offers just regroups what's already on disk (see `--regroup`).
+function regroupPipeline(offers = []) {
+  if (!existsSync(PIPELINE_PATH)) return;
+
+  const text = readFileSync(PIPELINE_PATH, 'utf-8');
   const marker = '## Pendientes';
-  const idx = text.indexOf(marker);
-  if (idx === -1) {
-    // No Pendientes section — append at end before Procesadas
-    const procIdx = text.indexOf('## Procesadas');
-    const insertAt = procIdx === -1 ? text.length : procIdx;
-    const block = `\n${marker}\n\n` + offers.map(o =>
-      `- [ ] ${o.url} | ${o.company} | ${o.title}`
-    ).join('\n') + '\n\n';
-    text = text.slice(0, insertAt) + block + text.slice(insertAt);
-  } else {
-    // Find the end of existing Pendientes content (next ## or end)
-    const afterMarker = idx + marker.length;
-    const nextSection = text.indexOf('\n## ', afterMarker);
-    const insertAt = nextSection === -1 ? text.length : nextSection;
+  const markerIdx = text.indexOf(marker);
 
-    const block = '\n' + offers.map(o =>
-      `- [ ] ${o.url} | ${o.company} | ${o.title}`
-    ).join('\n') + '\n';
-    text = text.slice(0, insertAt) + block + text.slice(insertAt);
+  // Locations: scan-history for existing entries, overlaid with the new offers'
+  // own locations (they aren't written to scan-history until after this call).
+  const locationsByUrl = loadLocationsByUrl();
+  for (const o of offers) {
+    if (o.location) locationsByUrl.set(o.url, o.location);
   }
 
-  writeFileSync(PIPELINE_PATH, text, 'utf-8');
+  // Split the document into head / existing-section-body / tail.
+  let head, tail;
+  const existing = [];
+  if (markerIdx === -1) {
+    // No Pendientes section yet — place it before ## Procesadas, else at the end.
+    const procIdx = text.indexOf('## Procesadas');
+    if (procIdx === -1) { head = text; tail = ''; }
+    else { head = text.slice(0, procIdx); tail = text.slice(procIdx); }
+  } else {
+    const afterMarker = markerIdx + marker.length;
+    const nextSection = text.indexOf('\n## ', afterMarker);
+    const sectionEnd = nextSection === -1 ? text.length : nextSection;
+    head = text.slice(0, markerIdx);
+    tail = text.slice(sectionEnd);
+    for (const line of text.slice(afterMarker, sectionEnd).split('\n')) {
+      const m = line.match(/^- \[([ xX])\]\s+(\S+)\s*\|\s*(.*)$/);
+      if (m) existing.push({ checked: m[1].toLowerCase() === 'x', url: m[2], rest: m[3].trim() });
+    }
+  }
+
+  // Merge existing entries with the new offers (dedup by URL, existing wins).
+  const seen = new Set(existing.map(e => e.url));
+  const entries = [...existing];
+  for (const o of offers) {
+    if (seen.has(o.url)) continue;
+    seen.add(o.url);
+    entries.push({ checked: false, url: o.url, rest: `${o.company} | ${o.title}` });
+  }
+
+  // Group by inferred country.
+  const byCountry = new Map();
+  for (const e of entries) {
+    const country = countryForLocation(locationsByUrl.get(e.url));
+    if (!byCountry.has(country)) byCountry.set(country, []);
+    byCountry.get(country).push(e);
+  }
+
+  // Rebuild the section.
+  let section = `${marker}\n`;
+  for (const country of sortCountriesBySize(byCountry)) {
+    section += `\n### --- ${country} ---\n\n`;
+    for (const e of byCountry.get(country)) {
+      section += `- [${e.checked ? 'x' : ' '}] ${e.url} | ${e.rest}\n`;
+    }
+  }
+
+  // Stitch back together with tidy blank-line spacing.
+  const cleanHead = head.replace(/\s+$/, '');
+  const cleanTail = tail.replace(/^\s+/, '');
+  let out = cleanHead ? `${cleanHead}\n\n${section}` : section;
+  if (cleanTail) out += `\n${cleanTail}`;
+  if (!out.endsWith('\n')) out += '\n';
+
+  writeFileSync(PIPELINE_PATH, out, 'utf-8');
+}
+
+// Scan-flow writer: skip the rewrite entirely when there's nothing new to add.
+function appendToPipeline(offers) {
+  if (offers.length === 0) return;
+  regroupPipeline(offers);
 }
 
 function appendToScanHistory(offers, date, status = 'added') {
@@ -387,6 +540,13 @@ async function main() {
   const verify = args.includes('--verify');
   const companyFlag = args.indexOf('--company');
   const filterCompany = companyFlag !== -1 ? args[companyFlag + 1]?.toLowerCase() : null;
+
+  // --regroup: reorganize the existing pipeline.md by country and exit (no scan).
+  if (args.includes('--regroup')) {
+    regroupPipeline();
+    console.log(`Regrouped ${PIPELINE_PATH} by country.`);
+    return;
+  }
 
   // 1. Load providers
   const providers = await loadProviders(PROVIDERS_DIR);
@@ -563,9 +723,26 @@ async function main() {
   }
 
   if (verifiedOffers.length > 0) {
-    console.log('\nNew offers:');
+    console.log('\nNew offers (by country):');
+    // Bucket by inferred country, then order groups largest-first (ties broken
+    // alphabetically) with the catch-all 'Other' pinned to the bottom.
+    const byCountry = new Map();
     for (const o of verifiedOffers) {
-      console.log(`  + ${o.company} | ${o.title} | ${o.location || 'N/A'}`);
+      const country = countryForLocation(o.location);
+      if (!byCountry.has(country)) byCountry.set(country, []);
+      byCountry.get(country).push(o);
+    }
+    const sortedCountries = [...byCountry.keys()].sort((a, b) => {
+      if ((a === 'Other') !== (b === 'Other')) return a === 'Other' ? 1 : -1;
+      const diff = byCountry.get(b).length - byCountry.get(a).length;
+      return diff !== 0 ? diff : a.localeCompare(b);
+    });
+    for (const country of sortedCountries) {
+      const group = byCountry.get(country);
+      console.log(`\n  ${country} (${group.length}):`);
+      for (const o of group) {
+        console.log(`    + ${o.company} | ${o.title} | ${o.location || 'N/A'}`);
+      }
     }
     if (dryRun) {
       console.log('\n(dry run — run without --dry-run to save results)');
