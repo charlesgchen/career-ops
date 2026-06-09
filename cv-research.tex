@@ -1,0 +1,198 @@
+%-------------------------
+% Resume in Latex -- Research tailored
+% Author : Jake Gutierrez (template); customized for Charles Chen
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%
+% NOTE: Compile with XeLaTeX or LuaLaTeX (not pdflatex) so the Georgia
+% system font can be loaded via fontspec.
+%------------------------
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[letterpaper, margin=0.5in]{geometry}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{iftex}
+
+% Prefer Georgia with XeLaTeX/LuaLaTeX; provide a pdflatex-safe fallback.
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{tgtermes}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Georgia}
+\fi
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Charles Chen} \\ \vspace{1pt}
+    \small 416-294-3655 $|$ \href{mailto:charlesg.chen@mail.utoronto.ca}{\underline{charlesg.chen@mail.utoronto.ca}} $|$
+    \href{https://linkedin.com/in/charlesgchen/}{\underline{linkedin.com/in/charlesgchen}} $|$
+    \href{https://github.com/charlesgchen}{\underline{github.com/charlesgchen}}
+\end{center}
+
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {University of Toronto}{Toronto, ON}
+      {Bachelor of Science (Co-op) in Computer Science and Statistics, Minor in Studio Art}{May 2028 (Expected)}
+      \resumeItemListStart
+        \resumeItem{Specialist in Machine Learning \& Data Mining \enspace$|$\enspace GPA: 3.62/4.0}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+
+%-----------RESEARCH EXPERIENCE-----------
+\section{Research Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Student Research Assistant}{Mar. 2026 -- Present}
+      {Project Neura}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Second author on a \href{https://arxiv.org/abs/2604.15271}{\underline{paper}} (accepted to the CV4Science workshop at CVPR 2026) introducing \textit{SegWithU}, a novel uncertainty estimation model for medical image segmentation that improves ranking metrics over current models by \textasciitilde10\% and reduces inference time by 3x compared to multi-pass baselines}
+        \resumeItem{Refined the model's multi-objective training criterion, balancing segmentation quality against calibrated uncertainty estimates; informed design choices through close reading of the uncertainty-quantification and calibration literature}
+        \resumeItem{Designed and ran ablation studies isolating individual model components -- loss function design, probe count, and ranking vs. calibration objectives -- against baseline configurations to attribute performance gains}
+        \resumeItem{Implemented data and visualization pipelines (PyTorch, NumPy) for 2D and 3D segmentation/uncertainty masks on the ACDC, LiTS, and BraTS benchmark datasets to compare results against prior uncertainty methods}
+        \resumeItem{Built a modular evaluation pipeline for the LLaVA 1.5 vision-language model supporting plug-in benchmark suites and model compression strategies, enabling rapid comparison of compression methods on downstream task accuracy}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Interactive ML Visualization Developer (Work Study)}{May 2026 -- Present}
+      {University of Toronto, Department of Computer Science}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Selected through application and interview to work with three CS faculty on CSC311 (Introduction to Machine Learning), developing interactive course materials that translate core ML formalism into intuition for students}
+        \resumeItem{Designed and implemented D3.js and Quarto visualizations of bias-variance decomposition, gradient descent dynamics, logistic regression, Gaussian discriminant analysis, and amortized inference for probabilistic modeling}
+        \resumeItem{Iterated visualization design with supervising professors to align mathematical fidelity with pedagogical clarity across the course's optimization and probabilistic-modeling units}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------INDUSTRY / OTHER EXPERIENCE-----------
+\section{Industry \& Other Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Software Developer (Part-time)}{Dec. 2025 -- April 2026}
+      {Agentiiv (via UTMIST)}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Designed and implemented a managed MCP Gateway abstracting heterogeneous tool servers (Postgres, Slack, Google Drive) behind a single interface for an enterprise AI agent platform}
+        \resumeItem{Built API key, identity, and audit/usage logging services in Python (FastAPI, PostgreSQL, Docker), enabling governance and traceability for agent tool calls}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Systems Developer Co-op}{Sept. 2025 -- Dec. 2025}
+      {Toronto Transit Commission}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Proposed and shipped an automated InfoPath-to-Power-Apps migration tool, saving 400+ engineering hours across 110 forms; adopted as the team standard for future migrations}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Hyperspectral Algal Bloom Early-Warning System} $|$ \emph{PyTorch, 3D U-Net, Apache Spark}}{2026}
+          \resumeItemListStart
+            \resumeItem{Building an automated early-warning pipeline for harmful algal blooms by training a 3D U-Net on high-resolution hyperspectral imaging data to flag high-risk areas}
+            \resumeItem{Scaled preprocessing for large remote-sensing data with Apache Spark, fusing geospatial and in-situ data to enable microcystin identification via spectral signature recognition}
+            \resumeItem{Self-studied the underlying biology and remote-sensing literature to inform hypotheses, evaluation metrics, and error analysis across model iterations}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{DS3 Datathon -- 3rd Place Winner} $|$ \emph{Python, Scikit-learn, Pandas, NumPy}}{Feb. 2025}
+          \resumeItemListStart
+            \resumeItem{Achieved 99\% accuracy predicting used-car value with classification models (Random Forest, KNN, Logistic Regression); boosted performance $\sim$15\% via preprocessing (One-Hot + Ordinal Encoding) and feature selection}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, R, SQL, C/C++, Java} \\
+     \textbf{ML / DL}{: PyTorch, TensorFlow, Scikit-learn, OpenCV, Pandas, NumPy, Matplotlib} \\
+     \textbf{Research Areas}{: Medical Image Segmentation, Uncertainty Estimation, Computer Vision, Cross-Discipline Applied ML} \\
+     \textbf{Tools}{: Git/GitHub, Docker, Apache Spark, Jupyter, LaTeX, Linux}
+    }}
+ \end{itemize}
+
+
+%-------------------------------------------
+\end{document}

@@ -1,0 +1,195 @@
+ %-------------------------
+% Resume in Latex -- Machine Learning tailored
+% Author : Jake Gutierrez (template); customized for Charles Chen
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%
+% NOTE: Compile with XeLaTeX or LuaLaTeX (not pdflatex) so the Georgia
+% system font can be loaded via fontspec.
+%------------------------
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[letterpaper, margin=0.5in]{geometry}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{iftex}
+
+% Prefer Georgia with XeLaTeX/LuaLaTeX; provide a pdflatex-safe fallback.
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{tgtermes}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Georgia}
+\fi
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Charles Chen} \\ \vspace{1pt}
+    \small 416-294-3655 $|$ \href{mailto:charlesg.chen@mail.utoronto.ca}{\underline{charlesg.chen@mail.utoronto.ca}} $|$
+    \href{https://linkedin.com/in/charlesgchen/}{\underline{linkedin.com/in/charlesgchen}} $|$
+    \href{https://github.com/charlesgchen}{\underline{github.com/charlesgchen}}
+\end{center}
+
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {University of Toronto}{Toronto, ON}
+      {Bachelor of Science (Co-op) in Computer Science and Statistics, Minor in Studio Art}{May 2028 (Expected)}
+      \resumeItemListStart
+        \resumeItem{Specialist in Machine Learning \& Data Mining\enspace$|$\enspace GPA: 3.62/4.0}
+        \resumeItem{AWS Certified Developer -- Associate}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Student Research Assistant}{Mar. 2026 -- Present}
+      {Project Neura}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Co-authored a \href{https://arxiv.org/abs/2604.15271}{\underline{research paper}} (accepted to the CV4Science workshop at CVPR 2026) on uncertainty estimation in medical image segmentation; refined the multi-objective training criterion for a novel model (SegWithU) which improves ranking metrics over current models by \textasciitilde10\% and reduces inference time by 3x compared to multi-pass baselines}
+        \resumeItem{Conducted ablation studies on individual model components across the ACDC, LiTS, and BraTS benchmarks (2D and 3D segmentation), comparing loss function design, probe count, and ranking vs. calibration objectives against baseline configurations}
+        \resumeItem{Built a modular evaluation pipeline for the LLaVA 1.5 vision-language model supporting plug-in benchmark suites and model compression strategies for rapid experimentation}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Interactive ML Visualization Developer}{May 2026 -- Present}
+      {University of Toronto, Department of Computer Science}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Selected via application and interview to work under three CS faculty on CSC311 (Introduction to Machine Learning), building interactive D3.js and Quarto visualizations of core ML topics for course materials}
+        \resumeItem{Designed visualizations of gradient descent, bias-variance decomposition, logistic regression, Gaussian discriminant analysis, and amortized inference to surface the underlying mathematical intuition behind each method}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Part-time Software Developer}{Dec. 2025 -- April 2026}
+      {Agentiiv}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Designed and implemented a managed MCP Gateway for Agentiiv's enterprise AI agent platform, abstracting MCP servers (Postgres, Slack, Google Drive) behind a single interface so customers compose agents without tool-specific coupling}
+        \resumeItem{Built API key, identity, and audit/usage logging services in Python (FastAPI, PostgreSQL, Docker), enabling governance and traceability for agent tool calls in enterprise deployments}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Systems Developer Co-op}{Sept. 2025 -- Dec. 2025}
+      {Toronto Transit Commission}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Proposed and shipped an automated InfoPath-to-Power-Apps migration tool, saving 400+ engineering hours across 110 forms; adopted as the team standard for future migrations}
+        \resumeItem{Accelerated delivery using LLM tooling (Claude Code) to generate specs, regression test cases, unit-test scaffolds, and documentation; deployed 11 production forms supporting 1{,}000+ users}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Hyperspectral Algal Bloom Early-Warning System} $|$ \emph{PyTorch, Apache Spark, Docker}}{2026}
+          \resumeItemListStart
+            \resumeItem{Building an automated early-warning pipeline for harmful algal blooms by training a 3D U-Net on high-resolution hyperspectral imaging data to flag high-risk areas}
+            \resumeItem{Scaled preprocessing for large remote-sensing data with Apache Spark, fusing geospatial and in-situ data to enable microcystin identification via spectral signature recognition}
+            \resumeItem{Self-studied the underlying biology and remote-sensing literature to inform hypotheses, evaluation metrics, and error analysis across model iterations}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{DS3 Datathon -- 3rd Place Winner} $|$ \emph{Python, Scikit-learn, Pandas, NumPy}}{Feb. 2025}
+          \resumeItemListStart
+            \resumeItem{Achieved 99\% accuracy predicting used-car value with classification models (Random Forest, KNN, Logistic Regression); boosted performance $\sim$15\% via preprocessing (One-Hot + Ordinal Encoding) and feature selection}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{Brawl Stars Performance Insights Web App} $|$ \emph{React, TypeScript, PostgreSQL, AWS}}{2025}
+          \resumeItemListStart
+            \resumeItem{Built a full-stack analytics app on the Brawl Stars API serving player stats and historical performance through React dashboards backed by REST APIs; deployed via CI/CD on AWS}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, SQL, C/C++, Java, TypeScript/JavaScript} \\
+     \textbf{ML / DL}{: PyTorch, TensorFlow, Scikit-learn, OpenCV, Pandas, NumPy, Matplotlib} \\
+     \textbf{ML Areas}{: Image Segmentation, Computer Vision, Uncertainty Estimation, Agentic Workflows, RAG, MCP Servers} \\
+     \textbf{Data \& Infra}{: PostgreSQL, Apache Spark, Docker, Git/GitHub, AWS (Lambda, S3)}
+    }}
+ \end{itemize}
+
+
+%-------------------------------------------
+\end{document}

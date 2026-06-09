@@ -1,0 +1,190 @@
+%-------------------------
+% Resume in Latex -- Software Engineering tailored
+% Author : Jake Gutierrez (template); customized for Charles Chen
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%
+% NOTE: Compile with XeLaTeX or LuaLaTeX (not pdflatex) so the Georgia
+% system font can be loaded via fontspec.
+%------------------------
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[letterpaper, margin=0.5in]{geometry}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{iftex}
+
+% Prefer Georgia with XeLaTeX/LuaLaTeX; provide a pdflatex-safe fallback.
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{tgtermes}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Georgia}
+\fi
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Charles Chen} \\ \vspace{1pt}
+    \small 416-294-3655 $|$ \href{mailto:charlesg.chen@mail.utoronto.ca}{\underline{charlesg.chen@mail.utoronto.ca}} $|$
+    \href{https://linkedin.com/in/charlesgchen/}{\underline{linkedin.com/in/charlesgchen}} $|$
+    \href{https://github.com/charlesgchen}{\underline{github.com/charlesgchen}}
+\end{center}
+
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {University of Toronto}{Toronto, ON}
+      {Bachelor of Science (Co-op) in Computer Science and Statistics, Minor in Studio Art}{May 2028 (Expected)}
+      \resumeItemListStart
+        \resumeItem{Specialist in Machine Learning \& Data Mining\enspace$|$\enspace GPA: 3.62/4.0}
+        \resumeItem{AWS Certified Developer -- Associate}  
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Part-time Software Developer}{Dec. 2025 -- April 2026}
+      {Agentiiv}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Co-designed and shipped a managed MCP Gateway for Agentiiv's enterprise AI agent platform, abstracting MCP servers behind a single interface; launched on AWS App Runner with default Slack, Google Drive, and Postgres connections}
+        \resumeItem{Owned the API key, identity, and audit/usage logging services in Python (FastAPI, PostgreSQL, Docker), enabling governance and traceability for agent tool calls in enterprise deployments}
+        \resumeItem{Collaborated across a 10-developer team using PR reviews and async standups to coordinate API contracts and ship features end-to-end}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Systems Developer Co-op}{Sept. 2025 -- Dec. 2025}
+      {Toronto Transit Commission}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Proposed and shipped an automated InfoPath-to-Power-Apps migration tool, saving 400+ engineering hours across 110 forms; adopted as the team standard for future migrations}
+        \resumeItem{Built a Python + JavaScript pipeline that parses legacy form definitions, generates Power Apps forms, and enforces validation, error handling, and naming conventions}
+        \resumeItem{Deployed 11 production forms supporting 1{,}000+ users, with internal LLM tooling accelerating spec authoring, regression test design, unit-test scaffolding, and documentation}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Student Research Assistant}{Mar. 2026 -- Present}
+      {Project Neura}{Toronto, ON}
+      \resumeItemListStart
+        \resumeItem{Co-authored a \href{https://arxiv.org/abs/2604.15271}{\underline{research paper}} (accepted to the CV4Science workshop at CVPR 2026) on uncertainty estimation in medical image segmentation; refined the multi-objective training criterion for a novel model (SegWithU) which improves in ranking metrics over current models by \textasciitilde10\% and reduces inference time by 3x compared to multi-pass baselines }
+        \resumeItem{Built a reproducible benchmarking pipeline (PyTorch, NumPy) for 2D/3D mask comparison across three medical-imaging datasets (ACDC, LiTS, BraTS), enabling rapid iteration on model variants}
+        \resumeItem{Designed a modular evaluation pipeline for the LLaVA 1.5 vision-language model with plug-in benchmark suites and model compression strategies, enabling rapid experimentation across configurations}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Brawl Stars Performance Insights Web App} $|$ \emph{React, TypeScript, Node.js/Express, PostgreSQL, Supabase, AWS (EC2, Lambda, EventBridge)}}{2025}
+          \resumeItemListStart
+            \resumeItem{Built a full-stack React/TypeScript app over the Brawl Stars API with a Node.js/Express backend on EC2, serving dashboards via RESTful APIs and a PostgreSQL schema for player snapshots}
+            \resumeItem{Designed an EventBridge-scheduled Lambda microservice for data fetching and database writes, plus an ETL pipeline from a write-optimized to a read-optimized table; cut latency 60\% with caching and indexing, shipped via CI/CD with automated unit and regression tests}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{Hyperspectral Algal Bloom Early-Warning System} $|$ \emph{PyTorch, 3D U-Net, Apache Spark, Docker}}{2026}
+          \resumeItemListStart
+            \resumeItem{Building an automated early-warning pipeline for harmful algal blooms by training a 3D U-Net on high-resolution hyperspectral imaging data to flag high-risk areas}
+            \resumeItem{Scaled data processing using Apache Spark on high-resolution hyperspectral imaging data (6TB); containerized with Docker}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{DS3 Datathon -- 3rd Place Winner} $|$ \emph{Python, Scikit-learn}}{Feb. 2025}
+          \resumeItemListStart
+            \resumeItem{Achieved 99\% accuracy predicting used-car value with classification models; boosted performance $\sim$15\% via preprocessing (One-Hot + Ordinal Encoding) and feature selection}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Java, Python, TypeScript/JavaScript, SQL, C/C++} \\
+     \textbf{Frameworks \& Web}{: React, Node.js/Express, FastAPI, Django, REST APIs, XML, HTTP} \\
+     \textbf{Databases \& Data}{: PostgreSQL, MongoDB, DynamoDB, Apache Spark} \\
+     \textbf{DevOps \& Cloud}{: AWS (Lambda, S3, App Runner), Docker, Kubernetes, Git/GitHub, CI/CD} \\
+     \textbf{AI \& ML}{: PyTorch, scikit-learn, Pandas, LLM tooling, RAG, AI agents/MCP} \\
+    }}
+ \end{itemize}
+
+
+%-------------------------------------------
+\end{document}

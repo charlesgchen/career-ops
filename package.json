@@ -12,7 +12,8 @@
     "sync-check": "node cv-sync-check.mjs",
     "liveness": "node check-liveness.mjs",
     "scan": "node scan.mjs",
-    "patterns": "node analyze-patterns.mjs"
+    "patterns": "node analyze-patterns.mjs",
+    "pipeline-to-batch": "node pipeline-to-batch.mjs"
   },
   "keywords": [
     "ai",
