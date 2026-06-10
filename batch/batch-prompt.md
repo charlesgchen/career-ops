@@ -298,7 +298,7 @@ next_action: "{one concrete next step}"
 3. Detecta arquetipo → adapta framing
 4. Copia `{base}` → `output/cv-candidate-{company-slug}-{{DATE}}.tex`
 5. Edita SOLO la copia (NUNCA `{base}`):
-   - Reescribe el Professional Summary inyectando keywords
+   - **NO añadas un Professional Summary** ni ninguna sección de resumen / objetivo / perfil. Las bases del usuario no tienen summary; nunca crees uno. Personaliza solo reordenando y reformulando el contenido existente.
    - Selecciona/reordena top 3-4 proyectos más relevantes
    - Reordena bullets de experiencia por relevancia al JD
    - Inyecta keywords en logros existentes (**NUNCA inventa skills**)
@@ -320,7 +320,7 @@ On success, in Paso 5 use `pdf_emoji` = `✅` and in Paso 6 set `"pdf"` to the P
 - Single-column (lo aplica la plantilla)
 - Headers estándar: Education, Work Experience, Personal Projects, Technical Skills
 - UTF-8, texto seleccionable (`\pdfgentounicode=1`)
-- Keywords distribuidas: Summary, primer bullet de cada rol, Skills section
+- Keywords distribuidas: primer bullet de cada rol y Skills section (NO añadir un Summary para colocarlas)
 - Sin imágenes, sin color en el cuerpo
 
 **Estrategia keyword injection (ético):**

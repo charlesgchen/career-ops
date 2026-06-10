@@ -37,7 +37,7 @@ The three bases are configured in `config/profile.yml → cv.bases`:
 5. Detect the role archetype → adapt framing (see `modes/_profile.md`).
 6. Copy `{base}` → `output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex`.
 7. **Edit the copy in place** (NEVER edit `{base}` itself):
-   - Rewrite the Professional Summary, injecting JD keywords (rules below).
+   - **Do NOT add a Professional Summary** (or objective/profile blurb). The user's bases have no summary section — never create one. Tailor by reordering and rewording existing content only.
    - Reorder experience bullets so the most JD-relevant come first.
    - Reorder/select projects so the top 3-4 most relevant for the offer lead.
    - Inject JD vocabulary into existing achievements — reword, never invent.
@@ -81,8 +81,8 @@ Why this matters: removing fabricated skills by hand afterward is painful and ri
 - Examples:
   - JD says "RAG pipelines" → reword "LLM workflows with retrieval" to "RAG pipeline design"
   - JD says "MLOps" → reword "observability, evals" to "MLOps and observability"
-- Distribute keywords naturally: the Professional Summary, the first bullet of each
-  role, and (if present) the skills section.
+- Distribute keywords naturally: the first bullet of each role and (if present) the
+  skills section. Do NOT add a summary section to carry keywords.
 
 ## LaTeX Escaping (for content you add/change)
 
