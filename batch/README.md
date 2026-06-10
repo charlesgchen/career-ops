@@ -1,6 +1,6 @@
 # Batch Processing
 
-Process multiple job offers in parallel via headless workers. Each worker runs the full evaluation pipeline (A-F report + PDF + tracker line) autonomously. See the **Headless / Batch Mode** table in `AGENTS.md` for the correct command per CLI.
+Process multiple job offers in parallel via headless workers. Each worker runs the full evaluation pipeline (A-G report + PDF when gated in + tracker line) autonomously. Claude remains the default worker; Codex is available with `--agent codex`.
 
 ## Quick Start
 
@@ -24,17 +24,27 @@ Process multiple job offers in parallel via headless workers. Each worker runs t
    ./batch/batch-runner.sh
    ```
 
+   To run with Codex workers:
+
+   ```bash
+   ./batch/batch-runner.sh --agent codex
+   ```
+
 4. **Results** are automatically merged into `data/applications.md` and verified with `verify-pipeline.mjs` at the end of the run.
 
 ## Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--agent NAME` | `claude` | Worker backend: `claude` or `codex` |
 | `--parallel N` | `1` | Number of concurrent headless workers |
 | `--dry-run` | off | Preview pending offers without processing |
 | `--retry-failed` | off | Only retry offers marked as `failed` in state |
 | `--start-from N` | `0` | Skip offers with ID below N |
 | `--max-retries N` | `2` | Max retry attempts per offer before giving up |
+| `--model NAME` | CLI default | Model passed through to the selected worker CLI |
+| `--codex-no-search` | off | Disable Codex web search for workers |
+| `--codex-no-network` | off | Disable Codex shell-command network access |
 
 ## Directory Layout
 
@@ -42,6 +52,7 @@ Process multiple job offers in parallel via headless workers. Each worker runs t
 batch/
   batch-runner.sh          # Orchestrator script
   batch-prompt.md          # Prompt template sent to each worker
+  worker-result.schema.json # Structured final output contract for Codex workers
   batch-input.tsv          # Input offers (you create this)
   batch-state.tsv          # Processing state (auto-managed, resumable)
   logs/                    # Per-offer worker logs ({report_num}-{id}.log)
@@ -52,7 +63,7 @@ batch/
 ## How It Works
 
 1. **batch-runner.sh** reads `batch-input.tsv` and `batch-state.tsv` to determine which offers need processing.
-2. For each pending offer, it assigns a report number and launches a headless worker with `batch-prompt.md` as the system prompt (placeholders like `{{URL}}`, `{{REPORT_NUM}}` are resolved).
+2. For each pending offer, it assigns a report number and launches a headless worker with `batch-prompt.md` as the instruction prompt (placeholders like `{{URL}}`, `{{REPORT_NUM}}` are resolved).
 3. Each worker evaluates the offer, writes a report to `reports/`, generates a PDF to `output/`, and writes a tracker TSV to `tracker-additions/`.
 4. After all workers finish, batch-runner calls `merge-tracker.mjs` to merge TSVs into `data/applications.md` and runs `verify-pipeline.mjs` to check integrity.
 
@@ -75,6 +86,6 @@ A PID-based lock file (`batch-runner.pid`) prevents concurrent batch runs. If a 
 
 ## Prerequisites
 
-- Your CLI in PATH (see **Headless / Batch Mode** table in `AGENTS.md`)
+- Your selected CLI in PATH: `claude` for `--agent claude`, or `codex` for `--agent codex`
 - Node.js >= 18, Playwright chromium installed (`npm run doctor` to verify)
 - `batch-input.tsv` with at least one offer

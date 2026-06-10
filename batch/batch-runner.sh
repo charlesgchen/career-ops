@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# career-ops batch runner — standalone orchestrator for claude -p workers
-# Reads batch-input.tsv, delegates each offer to a claude -p worker,
+# career-ops batch runner — standalone orchestrator for headless AI workers
+# Reads batch-input.tsv, delegates each offer to a Claude or Codex worker,
 # tracks state in batch-state.tsv for resumability.
-#
-# NOTE: This script is Claude Code-specific. It uses claude -p with
-# --dangerously-skip-permissions and --append-system-prompt-file flags
-# that are not available in other CLIs. Multi-CLI support is out of scope
-# for now — contributions welcome.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -16,6 +11,7 @@ BATCH_DIR="$SCRIPT_DIR"
 INPUT_FILE="$BATCH_DIR/batch-input.tsv"
 STATE_FILE="$BATCH_DIR/batch-state.tsv"
 PROMPT_FILE="$BATCH_DIR/batch-prompt.md"
+RESULT_SCHEMA_FILE="$BATCH_DIR/worker-result.schema.json"
 LOGS_DIR="$BATCH_DIR/logs"
 TRACKER_DIR="$BATCH_DIR/tracker-additions"
 REPORTS_DIR="$PROJECT_DIR/reports"
@@ -33,25 +29,33 @@ RETRY_FAILED=false
 START_FROM=0
 MAX_RETRIES=2
 MIN_SCORE=0
-MODEL=""  # empty = let claude -p use the Claude Max default
+AGENT="${CAREER_OPS_AGENT:-claude}" # claude | codex
+MODEL=""  # empty = let the selected CLI use its default
+CODEX_SANDBOX="workspace-write"
+CODEX_APPROVAL="never"
+CODEX_SEARCH=true
+CODEX_NETWORK=true
 
 usage() {
   cat <<'USAGE'
-career-ops batch runner — process job offers in batch via claude -p workers
-Uses your default Claude model (Claude Max subscription).
+career-ops batch runner — process job offers in batch via headless workers
+Defaults to Claude for backward compatibility; pass --agent codex to use Codex.
 
 Usage: batch-runner.sh [OPTIONS]
 
 Options:
+  --agent NAME         Worker backend: claude or codex (default: claude)
   --parallel N         Number of parallel workers (default: 1)
   --dry-run            Show what would be processed, don't execute
   --retry-failed       Only retry offers marked as "failed" in state
   --start-from N       Start from offer ID N (skip earlier IDs)
   --max-retries N      Max retry attempts per offer (default: 2)
   --min-score N        Skip PDF/tracker for offers scoring below N (default: 0 = off)
-  --model NAME         Claude model passed to `claude -p --model` (default:
-                       unset = Claude Max default). Use a cheaper model for
-                       large batches, e.g. `--model claude-sonnet-4-6`.
+  --model NAME         Model passed through to the selected CLI
+  --codex-sandbox M    Codex sandbox mode (default: workspace-write)
+  --codex-approval P   Codex approval policy (default: never)
+  --codex-no-search    Disable Codex web search
+  --codex-no-network   Disable network access for Codex shell commands
   -h, --help           Show this help
 
 Files:
@@ -68,6 +72,9 @@ Examples:
   # Process all pending
   ./batch-runner.sh
 
+  # Process with Codex workers
+  ./batch-runner.sh --agent codex --parallel 2
+
   # Retry only failed offers
   ./batch-runner.sh --retry-failed
 
@@ -79,6 +86,7 @@ USAGE
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --agent) AGENT="$2"; shift 2 ;;
     --parallel) PARALLEL="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --retry-failed) RETRY_FAILED=true; shift ;;
@@ -86,6 +94,10 @@ while [[ $# -gt 0 ]]; do
     --max-retries) MAX_RETRIES="$2"; shift 2 ;;
     --min-score) MIN_SCORE="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
+    --codex-sandbox) CODEX_SANDBOX="$2"; shift 2 ;;
+    --codex-approval) CODEX_APPROVAL="$2"; shift 2 ;;
+    --codex-no-search) CODEX_SEARCH=false; shift ;;
+    --codex-no-network) CODEX_NETWORK=false; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -129,10 +141,28 @@ check_prerequisites() {
     exit 1
   fi
 
-  if ! command -v claude &>/dev/null; then
-    echo "ERROR: 'claude' CLI not found in PATH."
-    exit 1
-  fi
+  case "$AGENT" in
+    claude)
+      if ! command -v claude &>/dev/null; then
+        echo "ERROR: 'claude' CLI not found in PATH."
+        exit 1
+      fi
+      ;;
+    codex)
+      if ! command -v codex &>/dev/null; then
+        echo "ERROR: 'codex' CLI not found in PATH."
+        exit 1
+      fi
+      if [[ ! -f "$RESULT_SCHEMA_FILE" ]]; then
+        echo "ERROR: $RESULT_SCHEMA_FILE not found."
+        exit 1
+      fi
+      ;;
+    *)
+      echo "ERROR: unknown --agent '$AGENT' (expected: claude or codex)."
+      exit 1
+      ;;
+  esac
 
   mkdir -p "$LOGS_DIR" "$TRACKER_DIR" "$REPORTS_DIR"
 }
@@ -314,6 +344,99 @@ reserve_report_num() {
   run_with_state_lock reserve_report_num_unlocked "$@"
 }
 
+json_field() {
+  local file="$1" field="$2"
+  [[ -s "$file" ]] || return 0
+
+  node -e '
+const fs = require("fs");
+const [file, field] = process.argv.slice(1);
+try {
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  const value = data[field];
+  if (value !== undefined && value !== null) process.stdout.write(String(value));
+} catch {}
+' "$file" "$field" 2>/dev/null || true
+}
+
+extract_score() {
+  local result_file="$1" log_file="$2"
+  local score
+
+  score=$(json_field "$result_file" score)
+  if [[ -n "$score" ]]; then
+    printf '%s\n' "$score"
+    return
+  fi
+
+  sed -nE 's/.*"score":[[:space:]]*([0-9.]+).*/\1/p' "$log_file" 2>/dev/null | head -1 || true
+}
+
+run_claude_worker() {
+  local prompt="$1" resolved_prompt="$2" log_file="$3"
+
+  # Model defaults to the Claude Max subscription default unless --model was
+  # passed. Building the command in an array keeps quoting safe regardless.
+  local -a claude_args=(-p --dangerously-skip-permissions)
+  if [[ -n "$MODEL" ]]; then
+    claude_args+=(--model "$MODEL")
+  fi
+  claude_args+=(--append-system-prompt-file "$resolved_prompt" "$prompt")
+
+  claude "${claude_args[@]}" > "$log_file" 2>&1
+}
+
+run_codex_worker() {
+  local prompt="$1" resolved_prompt="$2" log_file="$3" result_file="$4"
+  local full_prompt="$BATCH_DIR/.codex-prompt-${BASHPID:-$$}.md"
+
+  {
+    printf '%s\n\n' '# System instructions'
+    cat "$resolved_prompt"
+    printf '%s\n\n' '---'
+    printf '%s\n' '# Invocation'
+    printf '%s\n' "$prompt"
+  } > "$full_prompt"
+
+  local -a codex_args=()
+
+  if [[ "$CODEX_SEARCH" == "true" ]]; then
+    codex_args+=(--search)
+  fi
+
+  codex_args+=(
+    exec
+    -C "$PROJECT_DIR"
+    --sandbox "$CODEX_SANDBOX"
+    --ask-for-approval "$CODEX_APPROVAL"
+    --ephemeral
+    --output-schema "$RESULT_SCHEMA_FILE"
+    --output-last-message "$result_file"
+    --color never
+  )
+
+  if [[ "$CODEX_NETWORK" == "true" && "$CODEX_SANDBOX" == "workspace-write" ]]; then
+    codex_args+=(-c 'sandbox_workspace_write.network_access=true')
+  fi
+  if [[ -n "$MODEL" ]]; then
+    codex_args+=(--model "$MODEL")
+  fi
+
+  local status=0
+  codex "${codex_args[@]}" - < "$full_prompt" > "$log_file" 2>&1 || status=$?
+  rm -f "$full_prompt"
+  return "$status"
+}
+
+run_worker() {
+  local prompt="$1" resolved_prompt="$2" log_file="$3" result_file="$4"
+
+  case "$AGENT" in
+    claude) run_claude_worker "$prompt" "$resolved_prompt" "$log_file" ;;
+    codex) run_codex_worker "$prompt" "$resolved_prompt" "$log_file" "$result_file" ;;
+  esac
+}
+
 # Process a single offer
 process_offer() {
   local id="$1" url="$2" source="$3" notes="$4"
@@ -332,7 +455,7 @@ process_offer() {
 
   # Build the prompt with placeholders replaced
   local prompt
-  prompt="Procesa esta oferta de empleo. Ejecuta el pipeline completo: evaluación A-F + report .md + PDF + tracker line."
+  prompt="Procesa esta oferta de empleo. Ejecuta el pipeline completo: evaluación A-G + report .md + PDF si supera el umbral + tracker line."
   prompt="$prompt URL: $url"
   prompt="$prompt JD file: $jd_file"
   prompt="$prompt Report number: $report_num"
@@ -340,6 +463,7 @@ process_offer() {
   prompt="$prompt Batch ID: $id"
 
   local log_file="$LOGS_DIR/${report_num}-${id}.log"
+  local result_file="$LOGS_DIR/${report_num}-${id}.result.json"
 
   # Prepare system prompt with placeholders resolved
   local resolved_prompt="$BATCH_DIR/.resolved-prompt-${id}.md"
@@ -360,17 +484,8 @@ process_offer() {
     -e "s|{{ID}}|${esc_id}|g" \
     "$PROMPT_FILE" > "$resolved_prompt"
 
-  # Launch claude -p worker.
-  # Model defaults to the Claude Max subscription default unless --model was
-  # passed. Building the command in an array keeps quoting safe regardless.
-  local -a claude_args=(-p --dangerously-skip-permissions)
-  if [[ -n "$MODEL" ]]; then
-    claude_args+=(--model "$MODEL")
-  fi
-  claude_args+=(--append-system-prompt-file "$resolved_prompt" "$prompt")
-
   local exit_code=0
-  claude "${claude_args[@]}" > "$log_file" 2>&1 || exit_code=$?
+  run_worker "$prompt" "$resolved_prompt" "$log_file" "$result_file" || exit_code=$?
 
   # Cleanup resolved prompt
   rm -f "$resolved_prompt"
@@ -381,10 +496,28 @@ process_offer() {
   if [[ $exit_code -eq 0 ]]; then
     # Try to extract score from worker output
     local score="-"
-    local score_match
-   score_match=$(sed -nE 's/.*"score":[[:space:]]*([0-9.]+).*/\1/p' "$log_file" 2>/dev/null | head -1 || true)
+    local score_match worker_status worker_error
+    worker_status=$(json_field "$result_file" status)
+    worker_error=$(json_field "$result_file" error)
+    worker_error="${worker_error//$'\t'/ }"
+    worker_error="${worker_error//$'\n'/ }"
+    score_match=$(extract_score "$result_file" "$log_file")
+
+    if [[ "$worker_status" == "failed" ]]; then
+      retries=$((retries + 1))
+      update_state "$id" "$url" "failed" "$started_at" "$completed_at" "$report_num" "-" "${worker_error:-worker reported failure}" "$retries"
+      echo "    ❌ Failed (worker reported failure)"
+      return 0
+    fi
+
     if [[ -n "$score_match" ]]; then
       score="$score_match"
+    fi
+
+    if [[ "$worker_status" == "skipped" ]]; then
+      update_state "$id" "$url" "skipped" "$started_at" "$completed_at" "$report_num" "$score" "${worker_error:-worker reported skipped}" "$retries"
+      echo "    ⏭️  Skipped (worker reported skipped, score: $score)"
+      return 0
     fi
 
     # Check min-score gate
@@ -392,7 +525,7 @@ process_offer() {
       if (( $(echo "$score < $MIN_SCORE" | bc -l) )); then
         update_state "$id" "$url" "skipped" "$started_at" "$completed_at" "$report_num" "$score" "below-min-score" "$retries"
         echo "    ⏭️  Skipped (score: $score < min-score: $MIN_SCORE)"
-        continue
+        return 0
       fi
     fi
 
@@ -475,7 +608,7 @@ main() {
   fi
 
   echo "=== career-ops batch runner ==="
-  echo "Parallel: $PARALLEL | Max retries: $MAX_RETRIES"
+  echo "Agent: $AGENT | Parallel: $PARALLEL | Max retries: $MAX_RETRIES"
   echo "Input: $total_input offers"
   echo ""
 

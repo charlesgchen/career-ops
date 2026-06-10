@@ -192,7 +192,7 @@ This setup is **English-only**. Use the default `modes/` for all output. (Non-En
 2. `browser_snapshot` to read content
 3. Only footer/navbar without JD = closed. Title + description + Apply = active.
 
-**Exception for batch workers (`claude -p`):** Playwright is not available in headless pipe mode. Use WebFetch as fallback and mark the report header with `**Verification:** unconfirmed (batch mode)`.
+**Exception for batch workers (`claude -p` / `codex exec`):** Playwright is not available in headless pipe mode. Use the worker's available web/search tools as fallback and mark the report header with `**Verification:** unconfirmed (batch mode)`.
 
 ---
 

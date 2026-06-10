@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/code) installed and configured
+- Claude Code or Codex installed and configured
 - Node.js 18+ (for utility scripts and portal scanning)
 - A LaTeX compiler for CV PDFs: [tectonic](https://tectonic-typesetting.github.io) (recommended) or `pdflatex` via [MiKTeX](https://miktex.org/) (Windows) / TeX Live. (Or skip local install and compile `.tex` files on [Overleaf](https://www.overleaf.com).)
 
@@ -44,10 +44,10 @@ Edit `portals.yml`:
 
 ### 5. Start using
 
-Open Claude Code in this directory:
+Open your agent CLI in this directory:
 
 ```bash
-claude
+claude   # or codex
 ```
 
 Then paste a job offer URL or description. Career-ops will evaluate it, generate a report, tailor the matching base résumé into a PDF, and track it.

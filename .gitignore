@@ -35,6 +35,8 @@ modes/_profile.md
 
 # Generated
 .resolved-prompt-*
+batch/.resolved-prompt-*
+batch/.codex-prompt-*
 node_modules/
 bun.lock
 

@@ -1,6 +1,6 @@
 # Career-Ops (personalized build)
 
-An AI-powered job search pipeline that runs on Claude Code: evaluate offers, tailor your
+An AI-powered job search pipeline that runs on Claude Code or Codex: evaluate offers, tailor your
 LaTeX résumé per job, scan portals, and track everything in one place.
 
 > This is a trimmed, single-user build. Non-English language packs, the markdown→HTML→PDF
@@ -11,7 +11,7 @@ LaTeX résumé per job, scan portals, and track everything in one place.
 
 ## What it does
 
-- **Evaluates offers** with a structured A–F scoring system (10 weighted dimensions + posting legitimacy).
+- **Evaluates offers** with a structured A–G scoring system (10 weighted dimensions + posting legitimacy).
 - **Tailors your CV** — picks the base résumé for the role's track, duplicates it, rewords/reorders it for the job, and compiles to PDF. **Never invents skills you don't have.**
 - **Scans portals** directly via ATS APIs (Greenhouse, Ashby, Lever) — zero LLM cost.
 - **Processes in batch** — evaluate many offers in parallel with headless workers.
@@ -40,7 +40,7 @@ cp templates/portals.example.yml portals.yml        # customize companies
 #    None yet? Start from templates/cv-template.tex.
 
 # 5. Use it
-claude                                # open Claude Code here, then paste a job URL
+claude                                # or codex; open your agent CLI here, then paste a job URL
 ```
 
 **LaTeX compiler required for PDFs:** `tectonic` (recommended) or `pdflatex` (MiKTeX / TeX Live), or compile the generated `.tex` on [Overleaf](https://www.overleaf.com).

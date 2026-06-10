@@ -11,6 +11,7 @@
     All flags are forwarded verbatim, so usage matches the bash script:
         .\batch\run-batch.ps1 --dry-run
         .\batch\run-batch.ps1 --parallel 2
+        .\batch\run-batch.ps1 --agent codex --parallel 2
         .\batch\run-batch.ps1 --parallel 2 --model claude-sonnet-4-6
         .\batch\run-batch.ps1 --retry-failed
 
@@ -55,5 +56,21 @@ Write-Host "Using Git Bash: $gitBash" -ForegroundColor DarkGray
 Write-Host "Running:        batch-runner.sh $($args -join ' ')" -ForegroundColor DarkGray
 Write-Host ""
 
-& $gitBash $runner @args
+function ConvertTo-BashPath([string]$Path) {
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $drive = $fullPath.Substring(0, 1).ToLowerInvariant()
+    $rest = $fullPath.Substring(2).Replace('\', '/')
+    return "/$drive$rest"
+}
+
+function Quote-BashArg([string]$Value) {
+    $singleQuoteEscape = "'" + '"' + "'" + '"' + "'"
+    return "'" + $Value.Replace("'", $singleQuoteEscape) + "'"
+}
+
+$runnerBash = ConvertTo-BashPath $runner
+$bashArgs = @((Quote-BashArg $runnerBash)) + @($args | ForEach-Object { Quote-BashArg ([string]$_) })
+$bashCommand = $bashArgs -join ' '
+
+& $gitBash -lc $bashCommand
 exit $LASTEXITCODE

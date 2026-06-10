@@ -24,7 +24,7 @@
      │                    Output Pipeline                      │
      │  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │
      │  │ Report.md│  │ PDF (base   │  │ Tracker TSV       │  │
-     │  │ (A-F eval)│  │ .tex→LaTeX) │  │ (merge-tracker)  │  │
+     │  │ (A-G eval)│  │ .tex→LaTeX) │  │ (merge-tracker)  │  │
      │  └──────────┘  └────────────┘  └───────────────────┘  │
      └────────────────────────────────────────────────────────┘
                                │
@@ -37,15 +37,16 @@
 ## Evaluation Flow (Single Offer)
 
 1. **Input**: User pastes JD text or URL
-2. **Extract**: Playwright/WebFetch extracts JD from URL
+2. **Extract**: Playwright or available web/search tools extract JD from URL
 3. **Classify**: Detect archetype (1 of 6 types)
-4. **Evaluate**: 6 blocks (A-F):
+4. **Evaluate**: 7 blocks (A-G):
    - A: Role summary
    - B: CV match (gaps + mitigation)
    - C: Level strategy
-   - D: Comp research (WebSearch)
+   - D: Comp research (web/search tools)
    - E: CV personalization plan
    - F: Interview prep (STAR stories)
+   - G: Posting legitimacy
 5. **Score**: Weighted average across 10 dimensions (1-5)
 6. **Report**: Save as `reports/{num}-{company}-{date}.md`
 7. **PDF**: Pick the base résumé for the role's track, tailor it, and compile to PDF (`modes/latex.md` → `generate-latex.mjs`)
@@ -63,7 +64,7 @@ batch-input.tsv    →  batch-runner.sh  →  N × headless CLI workers
                     (tracks progress)
 ```
 
-Each worker is a headless Claude Code instance — the bundled `batch-runner.sh` invokes `claude -p`. Workers produce:
+Each worker is a headless CLI instance. The bundled `batch-runner.sh` invokes `claude -p` by default, or `codex exec` when run with `--agent codex`. Workers produce:
 - Report .md
 - PDF (tailored from the matching base résumé, if a LaTeX compiler is available)
 - Tracker TSV line

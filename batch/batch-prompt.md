@@ -58,7 +58,7 @@ Aplicación durante la evaluación A-G:
 ### Paso 1 — Obtener JD
 
 1. Lee el archivo JD en `{{JD_FILE}}`
-2. Si el archivo está vacío o no existe, intenta obtener el JD desde `{{URL}}` con WebFetch
+2. Si el archivo está vacío o no existe, intenta obtener el JD desde `{{URL}}` con las herramientas web disponibles o con un comando HTTP local si tu entorno lo permite
 3. Si ambos fallan, reporta error y termina
 
 ### Paso 2 — Evaluación A-G
@@ -131,7 +131,7 @@ Sección de **gaps** con estrategia de mitigación para cada uno:
 
 #### Bloque D — Comp y Demanda
 
-Usar WebSearch para salarios actuales (Glassdoor, Levels.fyi, Blind), reputación comp de la empresa, tendencia demanda. Tabla con datos y fuentes citadas. Si no hay datos, decirlo.
+Usar las herramientas de búsqueda web disponibles para salarios actuales (Glassdoor, Levels.fyi, Blind), reputación comp de la empresa, tendencia demanda. Tabla con datos y fuentes citadas. Si no hay datos, decirlo.
 
 Score de comp (1-5): 5=top quartile, 4=above market, 3=median, 2=slightly below, 1=well below.
 
@@ -160,7 +160,7 @@ Analyze posting signals to assess whether this is a real, active opening.
 
 **What IS available in batch mode:**
 1. **Description quality analysis** -- Full JD text is available. Analyze specificity, requirements realism, salary transparency, boilerplate ratio.
-2. **Company hiring signals** -- WebSearch queries for layoff/freeze news (combine with Block D comp research).
+2. **Company hiring signals** -- Web/search queries for layoff/freeze news (combine with Block D comp research).
 3. **Reposting detection** -- Read `data/scan-history.tsv` to check for prior appearances.
 4. **Role market context** -- Qualitative assessment from JD content.
 
@@ -349,7 +349,7 @@ Formato TSV (una sola línea, sin header, 9 columnas tab-separated):
 | 2 | date | YYYY-MM-DD | `2026-03-14` | Fecha de evaluación |
 | 3 | company | string | `Datadog` | Nombre corto de empresa |
 | 4 | role | string | `Staff AI Engineer` | Título del rol |
-| 5 | status | canonical | `Evaluada` | DEBE ser canónico (ver states.yml) |
+| 5 | status | canonical | `Evaluated` | DEBE ser canónico (ver states.yml) |
 | 6 | score | X.XX/5 | `4.55/5` | O `N/A` si no evaluable |
 | 7 | pdf | emoji | `✅` o `❌` | Si se generó PDF |
 | 8 | report | md link | `[647](reports/647-...)` | Link root-relative; merge-tracker.mjs lo normaliza relativo al tracker (ej. `../reports/...`, #760) |
@@ -357,13 +357,13 @@ Formato TSV (una sola línea, sin header, 9 columnas tab-separated):
 
 **IMPORTANTE:** El orden TSV tiene status ANTES de score (col 5→status, col 6→score). En applications.md el orden es inverso (col 5→score, col 6→status). merge-tracker.mjs maneja la conversión.
 
-**Estados canónicos válidos:** `Evaluada`, `Aplicado`, `Respondido`, `Entrevista`, `Oferta`, `Rechazado`, `Descartado`, `NO APLICAR`
+**Estados canónicos válidos:** `Evaluated`, `Applied`, `Responded`, `Interview`, `Offer`, `Rejected`, `Discarded`, `SKIP`
 
 Donde `{next_num}` se calcula leyendo la última línea de `data/applications.md`.
 
 ### Paso 6 — Output final
 
-Al terminar, imprime por stdout un resumen JSON para que el orquestador lo parsee:
+Al terminar, imprime por stdout exactamente un resumen JSON para que el orquestador lo parsee:
 
 ```json
 {
@@ -380,6 +380,8 @@ Al terminar, imprime por stdout un resumen JSON para que el orquestador lo parse
 }
 ```
 
+Este JSON final debe ser el último y único contenido del mensaje final. No lo envuelvas en Markdown.
+
 Si algo falla:
 ```json
 {
@@ -389,6 +391,7 @@ Si algo falla:
   "company": "{empresa_o_unknown}",
   "role": "{rol_o_unknown}",
   "score": null,
+  "legitimacy": null,
   "pdf": null,
   "report": "{ruta_report_si_existe}",
   "error": "{descripción_del_error}"
@@ -411,7 +414,7 @@ Si algo falla:
 1. Leer el CV base y article-digest.md antes de evaluar
 2. Detectar el arquetipo del rol y adaptar el framing
 3. Citar líneas exactas del CV cuando haga match
-4. Usar WebSearch para datos de comp y empresa
+4. Usar búsqueda web para datos de comp y empresa cuando esté disponible
 5. Generar contenido en el idioma del JD (EN default)
 6. Ser directo y accionable — sin fluff
 7. Cuando generes texto en inglés (PDF summaries, bullets, STAR stories), usa inglés nativo de tech: frases cortas, verbos de acción, sin passive voice innecesaria, sin "in order to" ni "utilized"

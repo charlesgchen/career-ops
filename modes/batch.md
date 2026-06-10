@@ -62,11 +62,13 @@ batch/batch-runner.sh [OPTIONS]
 ```
 
 Options:
+- `--agent NAME` — worker backend: `claude` or `codex` (default: `claude`)
 - `--dry-run` — list pending jobs without executing
 - `--retry-failed` — retry only failed jobs
 - `--start-from N` — start from ID N
 - `--parallel N` — N workers in parallel
 - `--max-retries N` — attempts per job (default: 2)
+- `--model NAME` — pass a model name through to the selected worker CLI
 
 ## batch-state.tsv Format
 
