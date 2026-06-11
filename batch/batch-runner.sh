@@ -293,6 +293,22 @@ get_retries() {
   echo "${retries:-0}"
 }
 
+get_error() {
+  local id="$1"
+  if [[ ! -f "$STATE_FILE" ]]; then
+    echo ""
+    return
+  fi
+  local error
+  error=$(awk -F'\t' -v id="$id" '$1 == id { print $8 }' "$STATE_FILE")
+  echo "${error:-}"
+}
+
+is_runner_cli_error() {
+  local error="$1"
+  [[ "$error" == *"Usage: codex exec"* || "$error" == *"unexpected argument"* ]]
+}
+
 # Calculate next report number.
 # Caller must hold STATE_LOCK_DIR while this runs.
 next_report_num_unlocked() {
@@ -435,6 +451,10 @@ run_claude_worker() {
 run_codex_worker() {
   local prompt="$1" resolved_prompt="$2" log_file="$3" result_file="$4"
   local full_prompt="$BATCH_DIR/.codex-prompt-${BASHPID:-$$}.md"
+  local codex_project_dir codex_schema_file codex_result_file
+  codex_project_dir=$(path_for_prompt "$PROJECT_DIR")
+  codex_schema_file=$(path_for_prompt "$RESULT_SCHEMA_FILE")
+  codex_result_file=$(path_for_prompt "$result_file")
 
   {
     printf '%s\n\n' '# System instructions'
@@ -449,15 +469,15 @@ run_codex_worker() {
   if [[ "$CODEX_SEARCH" == "true" ]]; then
     codex_args+=(--search)
   fi
+  codex_args+=(--ask-for-approval "$CODEX_APPROVAL")
 
   codex_args+=(
     exec
-    -C "$PROJECT_DIR"
+    -C "$codex_project_dir"
     --sandbox "$CODEX_SANDBOX"
-    --ask-for-approval "$CODEX_APPROVAL"
     --ephemeral
-    --output-schema "$RESULT_SCHEMA_FILE"
-    --output-last-message "$result_file"
+    --output-schema "$codex_schema_file"
+    --output-last-message "$codex_result_file"
     --color never
   )
 
@@ -767,8 +787,14 @@ main() {
       local retries
       retries=$(get_retries "$id")
       if (( retries >= MAX_RETRIES )); then
-        echo "SKIP #$id: max retries ($MAX_RETRIES) reached"
-        continue
+        local error
+        error=$(get_error "$id")
+        if is_runner_cli_error "$error"; then
+          echo "WARN #$id: retrying previous runner/CLI argument failure despite max retries"
+        else
+          echo "SKIP #$id: max retries ($MAX_RETRIES) reached"
+          continue
+        fi
       fi
     else
       # Skip completed offers
@@ -780,8 +806,14 @@ main() {
         local retries
         retries=$(get_retries "$id")
         if (( retries >= MAX_RETRIES )); then
-          echo "SKIP #$id: failed and max retries reached (use --retry-failed to force)"
-          continue
+          local error
+          error=$(get_error "$id")
+          if is_runner_cli_error "$error"; then
+            echo "WARN #$id: retrying previous runner/CLI argument failure despite max retries"
+          else
+            echo "SKIP #$id: failed and max retries reached (use --retry-failed to force)"
+            continue
+          fi
         fi
       fi
     fi

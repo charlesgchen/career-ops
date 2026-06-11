@@ -62,12 +62,11 @@ Application during the A-G evaluation:
 3. If the file is empty, missing, or clearly only contains navigation/footer text, try to fetch the JD from `{{URL}}` with the available web tools or a local HTTP command if your environment allows it
 4. If both fail, report an error and stop
 
-### Step 2 — A-G Evaluation
+### Step 2 — A-D Evaluation
 
 Read `the base CV`. Run ALL blocks:
 
-#### Step 0 — Archetype Detection
-
+First, check if the job description says if this is for mandatory masters/phd level candidate. If so, immediately assign score 0 and skip all the further instructions in this step, other than machine summary. in the report, simply put "only for graduate students".
 Classify the offer into one of the 6 archetypes. If it's hybrid, indicate the 2 closest.
 
 **The 6 archetypes (all equally valid):**
@@ -122,13 +121,13 @@ Read `the base CV`. Table mapping each JD requirement to exact CV lines.
 
 Evaluate overall strength of applicant vs JD in 1 brief sentence.
 
-#### Block D — Comp and Demand
+#### Block C — Comp and Demand
 
 Give simple of analysis of quant + reputation of company
 
 
 
-#### Block G — Posting Legitimacy
+#### Block D — Posting Legitimacy
 
 Analyze posting signals to assess whether this is a real, active opening.
 
@@ -227,19 +226,11 @@ next_action: "{one concrete next step}"
 ## B) CV Match
 (full content)
 
-## C) Level and Strategy
+## C) Comp and Demand
 (full content)
 
-## D) Comp and Demand
-(full content)
 
-## E) Personalization Plan
-(full content)
-
-## F) Interview Plan
-(full content)
-
-## G) Posting Legitimacy
+## D) Posting Legitimacy
 (full content)
 
 ---
