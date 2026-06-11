@@ -45,16 +45,21 @@ Process multiple job offers in parallel via headless workers. Each worker runs t
 | `--model NAME` | CLI default | Model passed through to the selected worker CLI |
 | `--codex-no-search` | off | Disable Codex web search for workers |
 | `--codex-no-network` | off | Disable Codex shell-command network access |
+| `--no-prefetch-jd` | off | Skip local JD prefetching and let workers fetch/read the posting |
+| `--refresh-jd` | off | Re-fetch JD text even when a cached copy exists |
+| `--jd-min-chars N` | `500` | Minimum extracted text length accepted as a JD |
 
 ## Directory Layout
 
 ```
 batch/
   batch-runner.sh          # Orchestrator script
+  fetch-jd.mjs             # Local ATS/static HTML JD prefetcher
   batch-prompt.md          # Prompt template sent to each worker
   worker-result.schema.json # Structured final output contract for Codex workers
   batch-input.tsv          # Input offers (you create this)
   batch-state.tsv          # Processing state (auto-managed, resumable)
+  jd-cache/                # Local pre-fetched JD text files (gitignored)
   logs/                    # Per-offer worker logs ({report_num}-{id}.log)
   tracker-additions/       # TSV lines produced by workers
     merged/                # TSVs already merged into applications.md
@@ -63,9 +68,10 @@ batch/
 ## How It Works
 
 1. **batch-runner.sh** reads `batch-input.tsv` and `batch-state.tsv` to determine which offers need processing.
-2. For each pending offer, it assigns a report number and launches a headless worker with `batch-prompt.md` as the instruction prompt (placeholders like `{{URL}}`, `{{REPORT_NUM}}` are resolved).
-3. Each worker evaluates the offer, writes a report to `reports/`, generates a PDF to `output/`, and writes a tracker TSV to `tracker-additions/`.
-4. After all workers finish, batch-runner calls `merge-tracker.mjs` to merge TSVs into `data/applications.md` and runs `verify-pipeline.mjs` to check integrity.
+2. For each pending offer, it assigns a report number and pre-fetches JD text into `batch/jd-cache/{id}.txt` when possible.
+3. It launches a headless worker with `batch-prompt.md` as the instruction prompt (placeholders like `{{URL}}`, `{{JD_FILE}}`, `{{REPORT_NUM}}` are resolved).
+4. Each worker evaluates the offer, writes a report to `reports/`, generates a PDF to `output/`, and writes a tracker TSV to `tracker-additions/`.
+5. After all workers finish, batch-runner calls `merge-tracker.mjs` to merge TSVs into `data/applications.md` and runs `verify-pipeline.mjs` to check integrity.
 
 ## Tracker Merge
 

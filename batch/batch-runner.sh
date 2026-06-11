@@ -12,6 +12,8 @@ INPUT_FILE="$BATCH_DIR/batch-input.tsv"
 STATE_FILE="$BATCH_DIR/batch-state.tsv"
 PROMPT_FILE="$BATCH_DIR/batch-prompt.md"
 RESULT_SCHEMA_FILE="$BATCH_DIR/worker-result.schema.json"
+JD_FETCHER_FILE="$BATCH_DIR/fetch-jd.mjs"
+JD_CACHE_DIR="$BATCH_DIR/jd-cache"
 LOGS_DIR="$BATCH_DIR/logs"
 TRACKER_DIR="$BATCH_DIR/tracker-additions"
 REPORTS_DIR="$PROJECT_DIR/reports"
@@ -29,12 +31,16 @@ RETRY_FAILED=false
 START_FROM=0
 MAX_RETRIES=2
 MIN_SCORE=0
+LIMIT=0  # 0 = no cap; otherwise process only the first N pending offers
 AGENT="${CAREER_OPS_AGENT:-claude}" # claude | codex
 MODEL=""  # empty = let the selected CLI use its default
 CODEX_SANDBOX="workspace-write"
 CODEX_APPROVAL="never"
 CODEX_SEARCH=true
 CODEX_NETWORK=true
+PREFETCH_JD=true
+REFRESH_JD=false
+JD_MIN_CHARS=500
 
 usage() {
   cat <<'USAGE'
@@ -49,6 +55,9 @@ Options:
   --dry-run            Show what would be processed, don't execute
   --retry-failed       Only retry offers marked as "failed" in state
   --start-from N       Start from offer ID N (skip earlier IDs)
+  --limit N            Process only the first N pending offers, then stop
+                       (alias: --top N; default: 0 = no cap). Processed offers
+                       are marked completed, so the next run picks up the rest.
   --max-retries N      Max retry attempts per offer (default: 2)
   --min-score N        Skip PDF/tracker for offers scoring below N (default: 0 = off)
   --model NAME         Model passed through to the selected CLI
@@ -56,6 +65,9 @@ Options:
   --codex-approval P   Codex approval policy (default: never)
   --codex-no-search    Disable Codex web search
   --codex-no-network   Disable network access for Codex shell commands
+  --no-prefetch-jd     Do not prefetch JD text before launching workers
+  --refresh-jd         Re-fetch JD text even when a cached file exists
+  --jd-min-chars N     Minimum extracted JD length to accept (default: 500)
   -h, --help           Show this help
 
 Files:
@@ -80,6 +92,9 @@ Examples:
 
   # Process 2 at a time starting from ID 10
   ./batch-runner.sh --parallel 2 --start-from 10
+
+  # Process only the top 5 pending offers, then stop
+  ./batch-runner.sh --limit 5
 USAGE
 }
 
@@ -91,6 +106,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=true; shift ;;
     --retry-failed) RETRY_FAILED=true; shift ;;
     --start-from) START_FROM="$2"; shift 2 ;;
+    --limit|--top) LIMIT="$2"; shift 2 ;;
     --max-retries) MAX_RETRIES="$2"; shift 2 ;;
     --min-score) MIN_SCORE="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
@@ -98,10 +114,23 @@ while [[ $# -gt 0 ]]; do
     --codex-approval) CODEX_APPROVAL="$2"; shift 2 ;;
     --codex-no-search) CODEX_SEARCH=false; shift ;;
     --codex-no-network) CODEX_NETWORK=false; shift ;;
+    --no-prefetch-jd) PREFETCH_JD=false; shift ;;
+    --refresh-jd) REFRESH_JD=true; shift ;;
+    --jd-min-chars) JD_MIN_CHARS="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
 done
+
+# Validate --limit/--top: must be a non-negative integer (0 = no cap)
+if [[ ! "$LIMIT" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --limit/--top must be a non-negative integer (got '$LIMIT')."
+  exit 1
+fi
+if [[ ! "$JD_MIN_CHARS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --jd-min-chars must be a non-negative integer (got '$JD_MIN_CHARS')."
+  exit 1
+fi
 
 # Lock file to prevent double execution
 acquire_lock() {
@@ -140,6 +169,10 @@ check_prerequisites() {
     echo "ERROR: $PROMPT_FILE not found."
     exit 1
   fi
+  if [[ "$PREFETCH_JD" == "true" && ! -f "$JD_FETCHER_FILE" ]]; then
+    echo "ERROR: $JD_FETCHER_FILE not found."
+    exit 1
+  fi
 
   case "$AGENT" in
     claude)
@@ -164,7 +197,7 @@ check_prerequisites() {
       ;;
   esac
 
-  mkdir -p "$LOGS_DIR" "$TRACKER_DIR" "$REPORTS_DIR"
+  mkdir -p "$LOGS_DIR" "$TRACKER_DIR" "$REPORTS_DIR" "$JD_CACHE_DIR"
 }
 
 # Initialize state file if it doesn't exist
@@ -332,8 +365,21 @@ update_state() {
 reserve_report_num_unlocked() {
   local id="$1" url="$2" started="$3" retries="$4"
 
+  # Reuse a report number already assigned to this offer (e.g. on retry) so a
+  # retry doesn't orphan the prior report or churn the numbering. Only reserve
+  # a fresh number when the offer has never been assigned one.
   local report_num=""
-  if report_num=$(next_report_num_unlocked); then
+  if [[ -f "$STATE_FILE" ]]; then
+    report_num=$(awk -F'\t' -v id="$id" '$1 == id { print $6 }' "$STATE_FILE")
+  fi
+  if [[ ! "$report_num" =~ ^[0-9]+$ ]]; then
+    report_num=""
+    if ! report_num=$(next_report_num_unlocked); then
+      report_num=""
+    fi
+  fi
+
+  if [[ -n "$report_num" ]]; then
     update_state_unlocked "$id" "$url" "processing" "$started" "-" "$report_num" "-" "-" "$retries"
   fi
 
@@ -437,6 +483,64 @@ run_worker() {
   esac
 }
 
+path_for_prompt() {
+  local path="$1"
+  if command -v cygpath &>/dev/null; then
+    cygpath -w "$path" 2>/dev/null || printf '%s\n' "$path"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+file_char_count() {
+  local file="$1"
+  [[ -f "$file" ]] || { echo 0; return; }
+  node -e '
+const fs = require("fs");
+const file = process.argv[1];
+try {
+  process.stdout.write(String(fs.readFileSync(file, "utf8").trim().length));
+} catch {
+  process.stdout.write("0");
+}
+' "$file" 2>/dev/null || echo 0
+}
+
+prefetch_jd() {
+  local url="$1" jd_file="$2" meta_file="$3" prefetch_log="$4"
+
+  if [[ "$PREFETCH_JD" != "true" ]]; then
+    return 0
+  fi
+
+  local existing_chars=0
+  existing_chars=$(file_char_count "$jd_file")
+  if [[ "$REFRESH_JD" != "true" && "$existing_chars" =~ ^[0-9]+$ && "$existing_chars" -ge "$JD_MIN_CHARS" ]]; then
+    echo "    JD cache hit ($existing_chars chars)"
+    return 0
+  fi
+
+  local tmp_file="$jd_file.tmp"
+  rm -f "$tmp_file"
+
+  if node "$JD_FETCHER_FILE" "$url" "$tmp_file" --min-chars "$JD_MIN_CHARS" --meta "$meta_file" > "$prefetch_log" 2>&1; then
+    mv "$tmp_file" "$jd_file"
+    local chars
+    chars=$(file_char_count "$jd_file")
+    echo "    JD prefetched ($chars chars)"
+    return 0
+  fi
+
+  local reason
+  reason=$(tail -3 "$prefetch_log" 2>/dev/null | tr '\t\n' '  ' | cut -c1-220)
+  echo "    WARN: JD prefetch failed; worker will fall back to web tools (${reason:-unknown error})"
+  rm -f "$tmp_file"
+  if [[ ! -e "$jd_file" ]]; then
+    : > "$jd_file"
+  fi
+  return 0
+}
+
 # Process a single offer
 process_offer() {
   local id="$1" url="$2" source="$3" notes="$4"
@@ -449,21 +553,27 @@ process_offer() {
   report_num=$(reserve_report_num "$id" "$url" "$started_at" "$retries")
   local date
   date=$(date +%Y-%m-%d)
-  local jd_file="/tmp/batch-jd-${id}.txt"
+  local jd_file="$JD_CACHE_DIR/${id}.txt"
+  local jd_meta_file="$JD_CACHE_DIR/${id}.meta.json"
 
   echo "--- Processing offer #$id: $url (report $report_num, attempt $((retries + 1)))"
 
+  local log_file="$LOGS_DIR/${report_num}-${id}.log"
+  local result_file="$LOGS_DIR/${report_num}-${id}.result.json"
+  local prefetch_log="$LOGS_DIR/${report_num}-${id}.prefetch.log"
+
+  prefetch_jd "$url" "$jd_file" "$jd_meta_file" "$prefetch_log"
+  local prompt_jd_file
+  prompt_jd_file=$(path_for_prompt "$jd_file")
+
   # Build the prompt with placeholders replaced
   local prompt
-  prompt="Procesa esta oferta de empleo. Ejecuta el pipeline completo: evaluación A-G + report .md + PDF si supera el umbral + tracker line."
+  prompt="Process this job offer. Run the full pipeline: A-G evaluation + report .md + PDF if it passes the threshold + tracker line."
   prompt="$prompt URL: $url"
-  prompt="$prompt JD file: $jd_file"
+  prompt="$prompt JD file: $prompt_jd_file"
   prompt="$prompt Report number: $report_num"
   prompt="$prompt Date: $date"
   prompt="$prompt Batch ID: $id"
-
-  local log_file="$LOGS_DIR/${report_num}-${id}.log"
-  local result_file="$LOGS_DIR/${report_num}-${id}.result.json"
 
   # Prepare system prompt with placeholders resolved
   local resolved_prompt="$BATCH_DIR/.resolved-prompt-${id}.md"
@@ -471,7 +581,7 @@ process_offer() {
   local esc_url esc_jd_file esc_report_num esc_date esc_id
   esc_url="${url//\\/\\\\}"
   esc_url="${esc_url//|/\\|}"
-  esc_jd_file="${jd_file//\\/\\\\}"
+  esc_jd_file="${prompt_jd_file//\\/\\\\}"
   esc_jd_file="${esc_jd_file//|/\\|}"
   esc_report_num="${report_num//|/\\|}"
   esc_date="${date//|/\\|}"
@@ -517,6 +627,20 @@ process_offer() {
     if [[ "$worker_status" == "skipped" ]]; then
       update_state "$id" "$url" "skipped" "$started_at" "$completed_at" "$report_num" "$score" "${worker_error:-worker reported skipped}" "$retries"
       echo "    ⏭️  Skipped (worker reported skipped, score: $score)"
+      return 0
+    fi
+
+    # A real evaluation MUST have written a report file (Step 3 of the prompt).
+    # If the worker exited 0 but produced no report — e.g. a transient CLI or
+    # session-limit error like "Execution error" — treat it as a failure so it
+    # retries, instead of being marked completed and skipped on every later run.
+    local report_glob=("$REPORTS_DIR/${report_num}-"*.md)
+    if [[ ! -e "${report_glob[0]}" ]]; then
+      retries=$((retries + 1))
+      local empty_err
+      empty_err=$(tail -3 "$log_file" 2>/dev/null | tr '\t\n' '  ' | cut -c1-200)
+      update_state "$id" "$url" "failed" "$started_at" "$completed_at" "$report_num" "-" "${empty_err:-exited 0 but wrote no report}" "$retries"
+      echo "    ❌ Failed (exit 0 but no report written — likely transient/session-limit error)"
       return 0
     fi
 
@@ -609,6 +733,7 @@ main() {
 
   echo "=== career-ops batch runner ==="
   echo "Agent: $AGENT | Parallel: $PARALLEL | Max retries: $MAX_RETRIES"
+  echo "JD prefetch: $PREFETCH_JD | JD min chars: $JD_MIN_CHARS | Refresh JD: $REFRESH_JD"
   echo "Input: $total_input offers"
   echo ""
 
@@ -666,6 +791,16 @@ main() {
     pending_sources+=("$source")
     pending_notes+=("$notes")
   done < "$INPUT_FILE"
+
+  # Apply --limit/--top: keep only the first N pending offers (input order).
+  # The dropped offers stay untouched in state, so the next run processes them.
+  if (( LIMIT > 0 && ${#pending_ids[@]} > LIMIT )); then
+    echo "Limiting to top $LIMIT of ${#pending_ids[@]} pending offers (input order)."
+    pending_ids=("${pending_ids[@]:0:LIMIT}")
+    pending_urls=("${pending_urls[@]:0:LIMIT}")
+    pending_sources=("${pending_sources[@]:0:LIMIT}")
+    pending_notes=("${pending_notes[@]:0:LIMIT}")
+  fi
 
   local pending_count=${#pending_ids[@]}
 

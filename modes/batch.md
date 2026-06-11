@@ -69,6 +69,8 @@ Options:
 - `--parallel N` — N workers in parallel
 - `--max-retries N` — attempts per job (default: 2)
 - `--model NAME` — pass a model name through to the selected worker CLI
+- `--no-prefetch-jd` — skip local JD prefetching before worker launch
+- `--refresh-jd` — re-fetch JD text even when `batch/jd-cache/{id}.txt` exists
 
 ## batch-state.tsv Format
 
