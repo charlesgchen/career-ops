@@ -4,13 +4,13 @@
 % Based off of: https://github.com/sb2nov/resume
 % License : MIT
 %
-% NOTE: Compile with XeLaTeX or LuaLaTeX (not pdflatex) so the Georgia
-% system font can be loaded via fontspec.
+% NOTE: Compiles with pdflatex (default), tectonic, or xelatex. Uses the
+% tgtermes (Times-like) font for portability and ATS-safe text extraction.
 %------------------------
-\documentclass[letterpaper,11pt]{article}
+\documentclass[letterpaper,10pt]{article}
 
 \usepackage{latexsym}
-\usepackage[letterpaper, margin=0.5in]{geometry}
+\usepackage[letterpaper, margin=0.45in]{geometry}
 \usepackage{titlesec}
 \usepackage{marvosym}
 \usepackage[usenames,dvipsnames]{color}
@@ -20,17 +20,10 @@
 \usepackage{fancyhdr}
 \usepackage[english]{babel}
 \usepackage{tabularx}
-\usepackage{iftex}
-
-% Prefer Georgia with XeLaTeX/LuaLaTeX; provide a pdflatex-safe fallback.
-\ifPDFTeX
-  \usepackage[T1]{fontenc}
-  \usepackage[utf8]{inputenc}
-  \usepackage{tgtermes}
-\else
-  \usepackage{fontspec}
-  \setmainfont{Georgia}
-\fi
+% Single font path (Times-like, portable across all engines).
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tgtermes}
 
 \pagestyle{fancy}
 \fancyhf{} % clear all header and footer fields

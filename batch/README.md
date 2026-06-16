@@ -43,6 +43,7 @@ Process multiple job offers in parallel via headless workers. Each worker runs t
 | `--start-from N` | `0` | Skip offers with ID below N |
 | `--max-retries N` | `2` | Max retry attempts per offer before giving up |
 | `--model NAME` | CLI default | Model passed through to the selected worker CLI |
+| `--codex-effort E` | `medium` | Codex reasoning effort: `minimal`, `low`, `medium`, `high`, or `xhigh` |
 | `--codex-no-search` | off | Disable Codex web search for workers |
 | `--codex-no-network` | off | Disable Codex shell-command network access |
 | `--no-prefetch-jd` | off | Skip local JD prefetching and let workers fetch/read the posting |
@@ -87,6 +88,8 @@ Run `npm run merge` manually if you need to merge outside of a batch run.
 ## Resumability
 
 `batch-state.tsv` tracks the status of every offer (`pending`, `processing`, `completed`, `failed`). If the batch is interrupted, re-running `batch-runner.sh` picks up where it left off -- completed offers are skipped automatically.
+
+Offer identity is the URL. When `pipeline-to-batch.mjs` regenerates `batch-input.tsv`, it reuses the same numeric ID for URLs already present in `batch-state.tsv` or the previous `batch-input.tsv`, and assigns new IDs above the current maximum. `batch-runner.sh` also validates that each input ID still points to the same URL before it launches workers, so stale regenerated input cannot be mistaken for completed work.
 
 A PID-based lock file (`batch-runner.pid`) prevents concurrent batch runs. If a previous run crashed, the stale lock is detected and removed automatically.
 

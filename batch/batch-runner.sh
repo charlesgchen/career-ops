@@ -38,6 +38,7 @@ CODEX_SANDBOX="workspace-write"
 CODEX_APPROVAL="never"
 CODEX_SEARCH=true
 CODEX_NETWORK=true
+CODEX_EFFORT="${CAREER_OPS_CODEX_EFFORT:-medium}"
 PREFETCH_JD=true
 REFRESH_JD=false
 JD_MIN_CHARS=500
@@ -63,6 +64,8 @@ Options:
   --model NAME         Model passed through to the selected CLI
   --codex-sandbox M    Codex sandbox mode (default: workspace-write)
   --codex-approval P   Codex approval policy (default: never)
+  --codex-effort E     Codex reasoning effort: minimal, low, medium, high, xhigh
+                       (default: medium; env: CAREER_OPS_CODEX_EFFORT)
   --codex-no-search    Disable Codex web search
   --codex-no-network   Disable network access for Codex shell commands
   --no-prefetch-jd     Do not prefetch JD text before launching workers
@@ -112,6 +115,7 @@ while [[ $# -gt 0 ]]; do
     --model) MODEL="$2"; shift 2 ;;
     --codex-sandbox) CODEX_SANDBOX="$2"; shift 2 ;;
     --codex-approval) CODEX_APPROVAL="$2"; shift 2 ;;
+    --codex-effort) CODEX_EFFORT="$2"; shift 2 ;;
     --codex-no-search) CODEX_SEARCH=false; shift ;;
     --codex-no-network) CODEX_NETWORK=false; shift ;;
     --no-prefetch-jd) PREFETCH_JD=false; shift ;;
@@ -131,6 +135,13 @@ if [[ ! "$JD_MIN_CHARS" =~ ^[0-9]+$ ]]; then
   echo "ERROR: --jd-min-chars must be a non-negative integer (got '$JD_MIN_CHARS')."
   exit 1
 fi
+case "$CODEX_EFFORT" in
+  minimal|low|medium|high|xhigh) ;;
+  *)
+    echo "ERROR: --codex-effort must be one of: minimal, low, medium, high, xhigh (got '$CODEX_EFFORT')."
+    exit 1
+    ;;
+esac
 
 # Lock file to prevent double execution
 acquire_lock() {
@@ -231,9 +242,19 @@ acquire_state_lock() {
       local lock_pid
       lock_pid=$(cat "$STATE_LOCK_PID_FILE" 2>/dev/null || true)
       if [[ -n "$lock_pid" ]] && ! kill -0 "$lock_pid" 2>/dev/null; then
-        rm -f "$STATE_LOCK_PID_FILE"
-        if rmdir "$STATE_LOCK_DIR" 2>/dev/null; then
-          echo "WARN: Recovered stale state lock (PID $lock_pid not running)."
+        # Serialize recovery via a secondary mutex, and re-verify the PID is
+        # still the same dead one immediately before removing. This prevents two
+        # racing workers from both removing the lock — and from clobbering a
+        # fresh lock that a third worker just legitimately acquired.
+        if mkdir "${STATE_LOCK_DIR}.recover" 2>/dev/null; then
+          local cur_pid
+          cur_pid=$(cat "$STATE_LOCK_PID_FILE" 2>/dev/null || true)
+          if [[ "$cur_pid" == "$lock_pid" ]] && ! kill -0 "$lock_pid" 2>/dev/null; then
+            rm -f "$STATE_LOCK_PID_FILE" 2>/dev/null || true
+            rmdir "$STATE_LOCK_DIR" 2>/dev/null || true
+            echo "WARN: Recovered stale state lock (PID $lock_pid not running)."
+          fi
+          rmdir "${STATE_LOCK_DIR}.recover" 2>/dev/null || true
           continue
         fi
       fi
@@ -251,6 +272,16 @@ acquire_state_lock() {
 }
 
 release_state_lock() {
+  # Only release if THIS process actually holds the lock, so a worker that
+  # finishes (or dies via its EXIT trap) never deletes a lock that another
+  # worker currently owns.
+  if [[ -f "$STATE_LOCK_PID_FILE" ]]; then
+    local owner
+    owner=$(cat "$STATE_LOCK_PID_FILE" 2>/dev/null || true)
+    if [[ -n "$owner" && "$owner" != "${BASHPID:-$$}" ]]; then
+      return 0
+    fi
+  fi
   rm -f "$STATE_LOCK_PID_FILE" 2>/dev/null || true
   rmdir "$STATE_LOCK_DIR" 2>/dev/null || true
 }
@@ -269,39 +300,70 @@ run_with_state_lock() {
   return "$status"
 }
 
-# Get status of an offer from state file
-get_status() {
-  local id="$1"
+# Read one field from state for a specific offer identity. The URL argument is
+# optional for legacy callers, but batch execution passes it to avoid ID-only
+# matches after batch-input.tsv is regenerated.
+get_state_field() {
+  local id="$1" url="${2:-}" field="$3"
   if [[ ! -f "$STATE_FILE" ]]; then
-    echo "none"
     return
   fi
+  awk -F'\t' -v id="$id" -v url="$url" -v field="$field" \
+    '$1 == id && (url == "" || $2 == url) { print $field; exit }' "$STATE_FILE"
+}
+
+# Get status of an offer from state file
+get_status() {
+  local id="$1" url="${2:-}"
   local status
-  status=$(awk -F'\t' -v id="$id" '$1 == id { print $3 }' "$STATE_FILE")
+  status=$(get_state_field "$id" "$url" 3)
   echo "${status:-none}"
 }
 
 # Get retry count for an offer
 get_retries() {
-  local id="$1"
-  if [[ ! -f "$STATE_FILE" ]]; then
-    echo "0"
-    return
-  fi
+  local id="$1" url="${2:-}"
   local retries
-  retries=$(awk -F'\t' -v id="$id" '$1 == id { print $9 }' "$STATE_FILE")
+  retries=$(get_state_field "$id" "$url" 9)
   echo "${retries:-0}"
 }
 
 get_error() {
-  local id="$1"
-  if [[ ! -f "$STATE_FILE" ]]; then
-    echo ""
-    return
-  fi
+  local id="$1" url="${2:-}"
   local error
-  error=$(awk -F'\t' -v id="$id" '$1 == id { print $8 }' "$STATE_FILE")
+  error=$(get_state_field "$id" "$url" 8)
   echo "${error:-}"
+}
+
+validate_input_state_identity() {
+  if [[ ! -f "$STATE_FILE" ]]; then
+    return 0
+  fi
+
+  local errors=0
+  local id url source notes state_url state_id
+  while IFS=$'\t' read -r id url source notes; do
+    [[ "$id" == "id" ]] && continue
+    [[ -z "$id" || -z "$url" ]] && continue
+    [[ "$id" =~ ^[0-9]+$ ]] || continue
+
+    state_url=$(awk -F'\t' -v id="$id" '$1 == id { print $2; exit }' "$STATE_FILE")
+    if [[ -n "$state_url" && "$state_url" != "$url" ]]; then
+      echo "ERROR: batch-input id $id points to $url, but batch-state has $state_url" >&2
+      errors=$((errors + 1))
+    fi
+
+    state_id=$(awk -F'\t' -v url="$url" '$2 == url { print $1; exit }' "$STATE_FILE")
+    if [[ -n "$state_id" && "$state_id" != "$id" ]]; then
+      echo "ERROR: batch-input URL $url is id $id, but batch-state tracks it as id $state_id" >&2
+      errors=$((errors + 1))
+    fi
+  done < "$INPUT_FILE"
+
+  if (( errors > 0 )); then
+    echo "ERROR: batch input/state identity mismatch. Regenerate with: node pipeline-to-batch.mjs" >&2
+    return 1
+  fi
 }
 
 is_runner_cli_error() {
@@ -349,6 +411,7 @@ update_state_unlocked() {
 
   local tmp="$STATE_FILE.tmp"
   local found=false
+  local collision=false
 
   # Write header
   head -1 "$STATE_FILE" > "$tmp"
@@ -356,7 +419,17 @@ update_state_unlocked() {
   # Process existing lines
   while IFS=$'\t' read -r sid surl sstatus sstarted scompleted sreport sscore serror sretries; do
     [[ "$sid" == "id" ]] && continue  # skip header
-    if [[ "$sid" == "$id" ]]; then
+    if [[ "$sid" == "$id" && "$surl" != "$url" ]]; then
+      echo "ERROR: Refusing to overwrite state id $id; existing URL is $surl, input URL is $url" >&2
+      collision=true
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$sid" "$surl" "$sstatus" "$sstarted" "$scompleted" "$sreport" "$sscore" "$serror" "$sretries" >> "$tmp"
+    elif [[ "$surl" == "$url" && "$sid" != "$id" ]]; then
+      echo "ERROR: Refusing to duplicate state URL $url; existing id is $sid, input id is $id" >&2
+      collision=true
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$sid" "$surl" "$sstatus" "$sstarted" "$scompleted" "$sreport" "$sscore" "$serror" "$sretries" >> "$tmp"
+    elif [[ "$sid" == "$id" ]]; then
       printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$id" "$url" "$status" "$started" "$completed" "$report_num" "$score" "$error" "$retries" >> "$tmp"
       found=true
@@ -369,6 +442,11 @@ update_state_unlocked() {
   if [[ "$found" == "false" ]]; then
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$id" "$url" "$status" "$started" "$completed" "$report_num" "$score" "$error" "$retries" >> "$tmp"
+  fi
+
+  if [[ "$collision" == "true" ]]; then
+    rm -f "$tmp"
+    return 1
   fi
 
   mv "$tmp" "$STATE_FILE"
@@ -386,7 +464,7 @@ reserve_report_num_unlocked() {
   # a fresh number when the offer has never been assigned one.
   local report_num=""
   if [[ -f "$STATE_FILE" ]]; then
-    report_num=$(awk -F'\t' -v id="$id" '$1 == id { print $6 }' "$STATE_FILE")
+    report_num=$(awk -F'\t' -v id="$id" -v url="$url" '$1 == id && $2 == url { print $6; exit }' "$STATE_FILE")
   fi
   if [[ ! "$report_num" =~ ^[0-9]+$ ]]; then
     report_num=""
@@ -434,6 +512,41 @@ extract_score() {
   sed -nE 's/.*"score":[[:space:]]*([0-9.]+).*/\1/p' "$log_file" 2>/dev/null | head -1 || true
 }
 
+summarize_worker_error() {
+  local log_file="$1"
+  [[ -s "$log_file" ]] || { echo "no worker log written"; return; }
+
+  node -e '
+const fs = require("fs");
+const file = process.argv[1];
+let text = "";
+try { text = fs.readFileSync(file, "utf8"); } catch {}
+const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+
+const patterns = [
+  /You.ve hit your session limit[^\n]*/i,
+  /turn interrupted[^\n]*/i,
+  /failed to connect to websocket[^\n]*/i,
+  /No such host is known[^\n]*/i,
+  /unexpected argument[^\n]*/i,
+  /error:[^\n]*/i,
+  /ERROR:[^\n]*/i,
+];
+
+for (const pattern of patterns) {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const match = lines[i].match(pattern);
+    if (match) {
+      process.stdout.write(match[0].replace(/\s+/g, " ").slice(0, 220));
+      process.exit(0);
+    }
+  }
+}
+
+process.stdout.write((lines.slice(-3).join(" ") || "unknown worker failure").replace(/\s+/g, " ").slice(0, 220));
+' "$log_file" 2>/dev/null || echo "unknown worker failure"
+}
+
 run_claude_worker() {
   local prompt="$1" resolved_prompt="$2" log_file="$3"
 
@@ -470,6 +583,7 @@ run_codex_worker() {
     codex_args+=(--search)
   fi
   codex_args+=(--ask-for-approval "$CODEX_APPROVAL")
+  codex_args+=(-c "model_reasoning_effort=\"$CODEX_EFFORT\"")
 
   codex_args+=(
     exec
@@ -526,6 +640,20 @@ try {
 ' "$file" 2>/dev/null || echo 0
 }
 
+jd_cache_current() {
+  local meta_file="$1"
+  [[ -f "$meta_file" ]] || return 1
+  node -e '
+const fs = require("fs");
+try {
+  const meta = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  process.exit(meta.cache_schema === 2 ? 0 : 1);
+} catch {
+  process.exit(1);
+}
+' "$meta_file" 2>/dev/null
+}
+
 prefetch_jd() {
   local url="$1" jd_file="$2" meta_file="$3" prefetch_log="$4"
 
@@ -536,8 +664,16 @@ prefetch_jd() {
   local existing_chars=0
   existing_chars=$(file_char_count "$jd_file")
   if [[ "$REFRESH_JD" != "true" && "$existing_chars" =~ ^[0-9]+$ && "$existing_chars" -ge "$JD_MIN_CHARS" ]]; then
-    echo "    JD cache hit ($existing_chars chars)"
-    return 0
+    if jd_cache_current "$meta_file"; then
+      echo "    JD cache hit ($existing_chars chars)"
+      return 0
+    fi
+    echo "    JD cache stale; refreshing with current extractor"
+  fi
+
+  local stale_cache=false
+  if [[ "$existing_chars" =~ ^[0-9]+$ && "$existing_chars" -ge "$JD_MIN_CHARS" ]] && ! jd_cache_current "$meta_file"; then
+    stale_cache=true
   fi
 
   local tmp_file="$jd_file.tmp"
@@ -555,7 +691,9 @@ prefetch_jd() {
   reason=$(tail -3 "$prefetch_log" 2>/dev/null | tr '\t\n' '  ' | cut -c1-220)
   echo "    WARN: JD prefetch failed; worker will fall back to web tools (${reason:-unknown error})"
   rm -f "$tmp_file"
-  if [[ ! -e "$jd_file" ]]; then
+  if [[ "$stale_cache" == "true" ]]; then
+    : > "$jd_file"
+  elif [[ ! -e "$jd_file" ]]; then
     : > "$jd_file"
   fi
   return 0
@@ -568,7 +706,7 @@ process_offer() {
   local started_at
   started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local retries
-  retries=$(get_retries "$id")
+  retries=$(get_retries "$id" "$url")
   local report_num
   report_num=$(reserve_report_num "$id" "$url" "$started_at" "$retries")
   local date
@@ -658,15 +796,15 @@ process_offer() {
     if [[ ! -e "${report_glob[0]}" ]]; then
       retries=$((retries + 1))
       local empty_err
-      empty_err=$(tail -3 "$log_file" 2>/dev/null | tr '\t\n' '  ' | cut -c1-200)
+      empty_err=$(summarize_worker_error "$log_file")
       update_state "$id" "$url" "failed" "$started_at" "$completed_at" "$report_num" "-" "${empty_err:-exited 0 but wrote no report}" "$retries"
-      echo "    ❌ Failed (exit 0 but no report written — likely transient/session-limit error)"
+      echo "    ❌ Failed (exit 0 but no report written: ${empty_err:-unknown reason})"
       return 0
     fi
 
-    # Check min-score gate
-    if [[ "$score" != "-" && -n "$score" ]] && (( $(echo "$MIN_SCORE > 0" | bc -l) )); then
-      if (( $(echo "$score < $MIN_SCORE" | bc -l) )); then
+    # Check min-score gate (awk, not bc — bc isn't installed on git-bash/Windows)
+    if [[ "$score" != "-" && -n "$score" ]] && awk -v a="$MIN_SCORE" 'BEGIN{exit !(a>0)}'; then
+      if awk -v s="$score" -v m="$MIN_SCORE" 'BEGIN{exit !(s<m)}'; then
         update_state "$id" "$url" "skipped" "$started_at" "$completed_at" "$report_num" "$score" "below-min-score" "$retries"
         echo "    ⏭️  Skipped (score: $score < min-score: $MIN_SCORE)"
         return 0
@@ -678,9 +816,9 @@ process_offer() {
   else
     retries=$((retries + 1))
     local error_msg
-    error_msg=$(tail -5 "$log_file" 2>/dev/null | tr '\n' ' ' | cut -c1-200 || echo "Unknown error (exit code $exit_code)")
+    error_msg=$(summarize_worker_error "$log_file")
     update_state "$id" "$url" "failed" "$started_at" "$completed_at" "$report_num" "-" "$error_msg" "$retries"
-    echo "    ❌ Failed (attempt $retries, exit code $exit_code)"
+    echo "    ❌ Failed (attempt $retries, exit code $exit_code: ${error_msg:-unknown reason})"
   fi
 }
 
@@ -694,7 +832,19 @@ merge_tracker() {
   node "$PROJECT_DIR/verify-pipeline.mjs" || echo "⚠️  Verification found issues (see above)"
 }
 
-# Print summary
+# Mean of the numeric score args, to 1 decimal; prints "N/A" when given none.
+# Uses awk (bc isn't installed on git-bash/Windows).
+mean_score() {
+  if (( $# == 0 )); then
+    printf 'N/A'
+    return
+  fi
+  printf '%s\n' "$@" | awk '{ s += $1; n++ } END { if (n > 0) printf "%.1f", s / n; else printf "N/A" }'
+}
+
+# Print summary. Optional args: the offer IDs attempted in THIS run — when
+# given, a per-run breakdown is shown above the overall tracker totals so it's
+# clear what this invocation actually did vs. the whole pipeline state.
 print_summary() {
   echo ""
   echo "=== Batch Summary ==="
@@ -704,42 +854,87 @@ print_summary() {
     return
   fi
 
-  local total=0 completed=0 failed=0 pending=0
-  local score_sum=0 score_count=0
+  local -a run_ids=("$@")
 
-  while IFS=$'\t' read -r sid _ sstatus _ _ _ sscore _ _; do
-    [[ "$sid" == "id" ]] && continue
+  # --- This run ---
+  if (( ${#run_ids[@]} > 0 )); then
+    local rc=0 rf=0 rs=0 ro=0
+    local -a run_scores=()
+    local -a run_lines=()
+    local id row st rn sc er
+    for id in "${run_ids[@]}"; do
+      row=$(awk -F'\t' -v id="$id" '$1 == id { print $3 "\t" $6 "\t" $7 "\t" $8; exit }' "$STATE_FILE")
+      IFS=$'\t' read -r st rn sc er <<< "$row"
+      case "$st" in
+        completed)
+          rc=$((rc + 1))
+          [[ "$sc" != "-" && -n "$sc" ]] && run_scores+=("$sc")
+          run_lines+=("  ✅ #${id}  ${sc:-?}/5  report ${rn:-?}") ;;
+        failed)
+          rf=$((rf + 1))
+          run_lines+=("  ❌ #${id}  failed — $(printf '%s' "${er:-unknown}" | cut -c1-80)") ;;
+        skipped)
+          rs=$((rs + 1))
+          run_lines+=("  ⏭️  #${id}  skipped (${sc:-—})") ;;
+        *)
+          ro=$((ro + 1))
+          run_lines+=("  ⚠️  #${id}  ${st:-no state} (incomplete — worker did not finish)") ;;
+      esac
+    done
+    echo ""
+    echo "This run — ${#run_ids[@]} attempted:"
+    echo "  ✅ completed: $rc   ❌ failed: $rf   ⏭️  skipped: $rs   ⚠️  incomplete: $ro"
+    echo "  avg score (completed): $(mean_score "${run_scores[@]}")/5 (${#run_scores[@]} scored)"
+    local line
+    for line in "${run_lines[@]}"; do
+      echo "$line"
+    done
+  fi
+
+  # --- Overall (entire tracker state) ---
+  local total=0 completed=0 failed=0 skipped=0 pending=0
+  local -a all_scores=()
+  local -a failed_lines=()
+  while IFS=$'\t' read -r sid _ sstatus _ _ _ sscore serror _; do
+    [[ "$sid" == "id" || -z "$sid" ]] && continue
     total=$((total + 1))
     case "$sstatus" in
-      completed) completed=$((completed + 1))
-        if [[ "$sscore" != "-" && -n "$sscore" ]]; then
-          score_sum=$(echo "$score_sum + $sscore" | bc 2>/dev/null || echo "$score_sum")
-          score_count=$((score_count + 1))
-        fi
-        ;;
-      failed) failed=$((failed + 1)) ;;
+      completed)
+        completed=$((completed + 1))
+        [[ "$sscore" != "-" && -n "$sscore" ]] && all_scores+=("$sscore") ;;
+      failed)
+        failed=$((failed + 1))
+        failed_lines+=("  ❌ #${sid} — $(printf '%s' "${serror:-unknown}" | cut -c1-100)") ;;
+      skipped) skipped=$((skipped + 1)) ;;
       *) pending=$((pending + 1)) ;;
     esac
   done < "$STATE_FILE"
 
-  echo "Total: $total | Completed: $completed | Failed: $failed | Pending: $pending"
+  echo ""
+  echo "Overall — $total tracked offers:"
+  echo "  ✅ completed: $completed   ❌ failed: $failed   ⏭️  skipped: $skipped   ⏳ pending: $pending"
+  echo "  avg score (completed): $(mean_score "${all_scores[@]}")/5 (${#all_scores[@]} scored)"
 
-  if (( score_count > 0 )); then
-    local avg
-    avg=$(echo "scale=1; $score_sum / $score_count" | bc 2>/dev/null || echo "N/A")
-    echo "Average score: $avg/5 ($score_count scored)"
+  # Failure reasons shown by default (replaces the old --explain lookup flag).
+  # Reasons come from the persisted state error column; full text is in the log.
+  if (( ${#failed_lines[@]} > 0 )); then
+    echo ""
+    echo "Failed offers — reason (full log: $LOGS_DIR/<report>-<id>.log):"
+    local fline
+    for fline in "${failed_lines[@]}"; do
+      echo "$fline"
+    done
   fi
 }
 
 # Main
 main() {
   check_prerequisites
+  init_state
 
   if [[ "$DRY_RUN" == "false" ]]; then
     acquire_lock
   fi
-
-  init_state
 
   # Count input offers (skip header, ignore blank lines)
   local total_input
@@ -751,8 +946,13 @@ main() {
     exit 0
   fi
 
+  validate_input_state_identity || exit 1
+
   echo "=== career-ops batch runner ==="
   echo "Agent: $AGENT | Parallel: $PARALLEL | Max retries: $MAX_RETRIES"
+  if [[ "$AGENT" == "codex" ]]; then
+    echo "Codex effort: $CODEX_EFFORT"
+  fi
   echo "JD prefetch: $PREFETCH_JD | JD min chars: $JD_MIN_CHARS | Refresh JD: $REFRESH_JD"
   echo "Input: $total_input offers"
   echo ""
@@ -776,7 +976,7 @@ main() {
     fi
 
     local status
-    status=$(get_status "$id")
+    status=$(get_status "$id" "$url")
 
     if [[ "$RETRY_FAILED" == "true" ]]; then
       # Only process failed offers
@@ -785,10 +985,10 @@ main() {
       fi
       # Check retry limit
       local retries
-      retries=$(get_retries "$id")
+      retries=$(get_retries "$id" "$url")
       if (( retries >= MAX_RETRIES )); then
         local error
-        error=$(get_error "$id")
+        error=$(get_error "$id" "$url")
         if is_runner_cli_error "$error"; then
           echo "WARN #$id: retrying previous runner/CLI argument failure despite max retries"
         else
@@ -804,10 +1004,10 @@ main() {
       # Skip failed offers that hit retry limit (unless --retry-failed)
       if [[ "$status" == "failed" ]]; then
         local retries
-        retries=$(get_retries "$id")
+        retries=$(get_retries "$id" "$url")
         if (( retries >= MAX_RETRIES )); then
           local error
-          error=$(get_error "$id")
+          error=$(get_error "$id" "$url")
           if is_runner_cli_error "$error"; then
             echo "WARN #$id: retrying previous runner/CLI argument failure despite max retries"
           else
@@ -850,7 +1050,7 @@ main() {
     echo "=== DRY RUN (no processing) ==="
     for i in "${!pending_ids[@]}"; do
       local status
-      status=$(get_status "${pending_ids[$i]}")
+      status=$(get_status "${pending_ids[$i]}" "${pending_urls[$i]}")
       echo "  #${pending_ids[$i]}: ${pending_urls[$i]} [${pending_sources[$i]}] (status: $status)"
     done
     echo ""
@@ -888,8 +1088,11 @@ main() {
         sleep 1
       done
 
-      # Launch worker in background
-      process_offer "${pending_ids[$i]}" "${pending_urls[$i]}" "${pending_sources[$i]}" "${pending_notes[$i]}" &
+      # Launch worker in background. The subshell's EXIT trap releases the state
+      # lock if this worker dies while holding it (release is ownership-aware),
+      # so one worker crashing can't leave a leaked lock that stalls the rest.
+      ( trap 'release_state_lock' EXIT
+        process_offer "${pending_ids[$i]}" "${pending_urls[$i]}" "${pending_sources[$i]}" "${pending_notes[$i]}" ) &
       pids+=($!)
       pid_ids+=("${pending_ids[$i]}")
       running=$((running + 1))
@@ -904,8 +1107,8 @@ main() {
   # Merge tracker additions
   merge_tracker
 
-  # Print summary
-  print_summary
+  # Print summary (pass the IDs attempted this run for the per-run breakdown)
+  print_summary "${pending_ids[@]}"
 }
 
 main "$@"

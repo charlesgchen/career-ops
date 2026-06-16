@@ -15,9 +15,15 @@
  *      node pipeline-to-batch.mjs --limit 10
  *      node pipeline-to-batch.mjs --no-dedupe          (keep duplicate URLs)
  *      node pipeline-to-batch.mjs --in data/pipeline.md --out batch/batch-input.tsv
+ *      node pipeline-to-batch.mjs --state batch/batch-state.tsv
  *
  * Filters combine with AND. --include/--exclude/--country match
  * case-insensitively as substrings against company / role / country.
+ *
+ * IDs are stable by URL: existing reservations in batch-state.tsv and the
+ * previous batch-input.tsv are reused, and new postings get IDs above the
+ * current maximum. This keeps batch-runner resumability from mistaking a new
+ * posting for an old completed one after batch-input.tsv is regenerated.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -46,10 +52,70 @@ function resolvePath(p, fallback) {
 
 const IN_FILE = resolvePath(flagValue('--in'), 'data/pipeline.md');
 const OUT_FILE = resolvePath(flagValue('--out'), 'batch/batch-input.tsv');
+const STATE_FILE = resolvePath(flagValue('--state'), 'batch/batch-state.tsv');
 const COUNTRIES = csvFlag('--country');
 const INCLUDE = csvFlag('--include');
 const EXCLUDE = csvFlag('--exclude');
 const LIMIT = flagValue('--limit') ? parseInt(flagValue('--limit'), 10) : Infinity;
+
+// --- Stable ID allocation ---
+function parseIdUrlReservations(file) {
+  if (!existsSync(file)) return [];
+  const rows = [];
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+  for (const line of lines.slice(1)) {
+    if (!line.trim()) continue;
+    const cols = line.split('\t');
+    const id = Number.parseInt(cols[0], 10);
+    const url = (cols[1] || '').trim();
+    if (Number.isInteger(id) && id > 0 && /^https?:\/\//i.test(url)) {
+      rows.push({ id, url, file });
+    }
+  }
+  return rows;
+}
+
+function createIdAllocator(files) {
+  const idByUrl = new Map();
+  const urlById = new Map();
+  const conflicts = [];
+  let maxId = 0;
+
+  for (const file of files) {
+    for (const { id, url } of parseIdUrlReservations(file)) {
+      maxId = Math.max(maxId, id);
+
+      const reservedUrl = urlById.get(id);
+      if (reservedUrl && reservedUrl !== url) {
+        conflicts.push(`${file}: id ${id} is already reserved for ${reservedUrl}, ignoring conflicting URL ${url}`);
+        continue;
+      }
+
+      const reservedId = idByUrl.get(url);
+      if (reservedId && reservedId !== id) {
+        conflicts.push(`${file}: URL ${url} is already reserved as id ${reservedId}, ignoring conflicting id ${id}`);
+        continue;
+      }
+
+      urlById.set(id, url);
+      idByUrl.set(url, id);
+    }
+  }
+
+  let nextId = maxId + 1;
+  function allocate(url) {
+    const existing = idByUrl.get(url);
+    if (existing) return existing;
+
+    while (urlById.has(nextId)) nextId++;
+    const id = nextId++;
+    idByUrl.set(url, id);
+    urlById.set(id, url);
+    return id;
+  }
+
+  return { allocate, conflicts };
+}
 
 // --- Source detection from URL host ---
 function detectSource(url) {
@@ -86,6 +152,7 @@ if (!existsSync(IN_FILE)) {
 const lines = readFileSync(IN_FILE, 'utf8').split(/\r?\n/);
 const countryHeader = /^#{2,}\s*-{2,}\s*(.+?)\s*-{2,}\s*$/; // ### --- Country ---
 const pendingItem = /^-\s*\[ \]\s+(.+)$/; // only unchecked items
+const idAllocator = createIdAllocator([STATE_FILE, OUT_FILE]);
 
 let currentCountry = '';
 const records = [];
@@ -122,14 +189,18 @@ for (const raw of lines) {
   const noteParts = [currentCountry, company, role].filter(Boolean);
   const notes = noteParts.join(' | ').replace(/\t/g, ' ').trim();
 
-  records.push({ url, source: detectSource(url), notes });
+  records.push({ id: idAllocator.allocate(url), url, source: detectSource(url), notes });
   if (records.length >= LIMIT) break;
 }
 
 // --- Emit TSV ---
 const header = 'id\turl\tsource\tnotes';
-const rows = records.map((r, i) => `${i + 1}\t${r.url}\t${r.source}\t${r.notes}`);
+const rows = records.map((r) => `${r.id}\t${r.url}\t${r.source}\t${r.notes}`);
 const tsv = [header, ...rows].join('\n') + '\n';
+
+for (const conflict of idAllocator.conflicts) {
+  console.error(`WARN: ${conflict}`);
+}
 
 if (DRY_RUN) {
   process.stdout.write(tsv);

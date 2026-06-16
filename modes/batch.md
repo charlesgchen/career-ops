@@ -69,6 +69,7 @@ Options:
 - `--parallel N` — N workers in parallel
 - `--max-retries N` — attempts per job (default: 2)
 - `--model NAME` — pass a model name through to the selected worker CLI
+- `--codex-effort E` — set Codex reasoning effort (`minimal`, `low`, `medium`, `high`, `xhigh`; default `medium`)
 - `--no-prefetch-jd` — skip local JD prefetching before worker launch
 - `--refresh-jd` — re-fetch JD text even when `batch/jd-cache/{id}.txt` exists
 
@@ -84,6 +85,7 @@ id	url	status	started_at	completed_at	report_num	score	error	retries
 ## Resumability
 
 - If it crashes → re-run → reads `batch-state.tsv` → skip completed jobs
+- Offer identity is the URL. Regenerate `batch-input.tsv` with `pipeline-to-batch.mjs` so existing URLs keep their numeric IDs; `batch-runner.sh` validates ID+URL before using prior state.
 - Lock file (`batch-runner.pid`) prevents double execution
 - Each worker is independent: failure in job #47 does not affect the others
 

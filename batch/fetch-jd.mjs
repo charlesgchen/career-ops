@@ -5,6 +5,7 @@ import net from 'node:net';
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_MIN_CHARS = 500;
+const CACHE_SCHEMA_VERSION = 2;
 const MAX_REDIRECTS = 5;
 const USER_AGENT = 'Mozilla/5.0 (compatible; career-ops/1.9; +https://github.com/santifer/career-ops)';
 
@@ -69,7 +70,7 @@ function assertPublicHttpUrl(raw) {
   return parsed;
 }
 
-async function fetchRaw(rawUrl, { accept = '*/*', timeoutMs = DEFAULT_TIMEOUT_MS, redirects = 0 } = {}) {
+async function fetchRaw(rawUrl, { accept = '*/*', timeoutMs = DEFAULT_TIMEOUT_MS, redirects = 0, headers = {} } = {}) {
   const parsed = assertPublicHttpUrl(rawUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -80,6 +81,7 @@ async function fetchRaw(rawUrl, { accept = '*/*', timeoutMs = DEFAULT_TIMEOUT_MS
       headers: {
         accept,
         'user-agent': USER_AGENT,
+        ...headers,
       },
     });
 
@@ -145,6 +147,62 @@ function normalizeText(text) {
 
 function compact(parts) {
   return normalizeText(parts.filter(Boolean).join('\n\n'));
+}
+
+function wordSet(text) {
+  return new Set(String(text || '').toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) || []);
+}
+
+function countMatches(text, patterns) {
+  const lower = String(text || '').toLowerCase();
+  return patterns.reduce((count, pattern) => count + (pattern.test(lower) ? 1 : 0), 0);
+}
+
+const JOB_SIGNAL_PATTERNS = [
+  /\bresponsibilit(y|ies)\b/,
+  /\b(requirements?|qualifications?)\b/,
+  /\bminimum qualifications?\b|\bpreferred qualifications?\b/,
+  /\bwhat you('ll| will| would)? do\b|\byou will\b|\bin this role\b/,
+  /\babout the (role|team|job|position)\b/,
+  /\bskills?\b|\bexperience\b|\btechnolog(y|ies)\b/,
+  /\bsoftware\b|\bdeveloper\b|\bengineer\b|\bmachine learning\b|\bdata scientist\b|\bcloud\b/,
+  /\bintern(ship)?\b|\bco-?op\b|\bstudent\b|\bnew grad\b/,
+  /\blocation\b|\bremote\b|\bhybrid\b|\bonsite\b/,
+  /\bcompensation\b|\bsalary\b|\bhourly\b|\bpay range\b/,
+  /\bjob (requisition|id)\b|\brequisition id\b/,
+];
+
+const SHELL_NOISE_PATTERNS = [
+  /\benable javascript\b|\brequires javascript\b/,
+  /\bsearch jobs\b|\bjob search\b|\bsearch results\b/,
+  /\bsign in\b|\blogin\b|\bcreate account\b|\bcandidate home\b/,
+  /\bjob alerts?\b|\btalent community\b|\bsimilar jobs\b/,
+  /\bprivacy policy\b|\bcookie(s| policy)?\b|\bterms of use\b/,
+  /\bpowered by workday\b|\bworkday\b/,
+  /\baccess denied\b|\bcaptcha\b|\bunsupported browser\b/,
+];
+
+function qualityProblem(extracted) {
+  const text = extracted?.text || '';
+  const combined = compact([extracted?.title, extracted?.company, extracted?.location, text]);
+  const uniqueWords = wordSet(text).size;
+  const signalScore = countMatches(combined, JOB_SIGNAL_PATTERNS);
+  const shellScore = countMatches(text, SHELL_NOISE_PATTERNS);
+  const genericHtml = extracted?.method === 'generic-html';
+
+  if (uniqueWords < (genericHtml ? 120 : 50)) {
+    return `too few unique words (${uniqueWords})`;
+  }
+  if (signalScore < (genericHtml ? 4 : 3)) {
+    return `too few job-description signals (${signalScore})`;
+  }
+  if (/enable javascript|requires javascript|unsupported browser|access denied|captcha/i.test(text) && signalScore < 6) {
+    return 'looks like an app shell or blocked page';
+  }
+  if (genericHtml && shellScore >= 4 && signalScore < 6) {
+    return `generic HTML looks like site chrome (${shellScore} shell signals, ${signalScore} JD signals)`;
+  }
+  return '';
 }
 
 function jsonText(value) {
@@ -305,6 +363,161 @@ async function extractSmartRecruiters(parsed) {
   return result({ method: 'smartrecruiters-api', url: parsed.href, title: job.name, company, location, text });
 }
 
+function locationText(location) {
+  if (!location) return '';
+  if (typeof location === 'string') return location;
+  return compact([
+    location.city,
+    location.state || location.province,
+    location.country || location.addressCountry,
+  ]);
+}
+
+async function extractBambooHR(parsed) {
+  if (!/\.bamboohr\.com$/i.test(parsed.hostname)) return null;
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  const careersIdx = parts.indexOf('careers');
+  const jobId = careersIdx >= 0 ? parts[careersIdx + 1] || '' : '';
+  if (!jobId || !/^\d+$/.test(jobId)) return null;
+
+  const payload = await fetchJson(`${parsed.origin}/careers/${encodeURIComponent(jobId)}/detail`, { timeoutMs: 30_000 });
+  const job = payload.result?.jobOpening || payload.jobOpening || payload.result || payload;
+  const location = locationText(job.location) || locationText(job.atsLocation);
+  const text = compact([
+    job.jobOpeningName,
+    job.departmentLabel && `Department: ${job.departmentLabel}`,
+    job.employmentStatusLabel && `Employment status: ${job.employmentStatusLabel}`,
+    location && `Location: ${location}`,
+    job.datePosted && `Posted: ${job.datePosted}`,
+    job.minimumExperience && `Minimum experience: ${job.minimumExperience}`,
+    htmlToText(job.description || ''),
+    jsonText(job.compensation),
+  ]);
+
+  return result({
+    method: 'bamboohr-detail-api',
+    url: parsed.href,
+    title: job.jobOpeningName,
+    company: parsed.hostname.split('.')[0],
+    location,
+    text,
+  });
+}
+
+function workdayInfo(parsed) {
+  const hostMatch = parsed.hostname.match(/^([^.]+)\.wd\d+\.myworkdayjobs\.com$/i);
+  if (!hostMatch) return null;
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  const jobIdx = parts.indexOf('job');
+  if (jobIdx <= 0 || jobIdx >= parts.length - 1) return null;
+
+  const tenant = hostMatch[1];
+  const site = parts[jobIdx - 1];
+  const jobPath = parts.slice(jobIdx + 1).map((part) => encodeURIComponent(decodeURIComponent(part))).join('/');
+  if (!tenant || !site || !jobPath) return null;
+  return { tenant, site, jobPath };
+}
+
+async function extractWorkday(parsed) {
+  const info = workdayInfo(parsed);
+  if (!info) return null;
+
+  const api = `https://${parsed.hostname}/wday/cxs/${encodeURIComponent(info.tenant)}/${encodeURIComponent(info.site)}/job/${info.jobPath}`;
+  const payload = await fetchJson(api, { timeoutMs: 30_000 });
+  const posting = payload.jobPostingInfo || payload;
+  const organization = payload.hiringOrganization || posting.hiringOrganization || {};
+  const company = organization.name || organization.organizationName || '';
+  const location = compact([
+    posting.location,
+    posting.primaryLocation,
+    posting.locationsText,
+    jsonText(posting.additionalLocations),
+  ]);
+  const text = compact([
+    posting.title,
+    company && `Company: ${company}`,
+    location && `Location: ${location}`,
+    posting.jobReqId && `Job requisition: ${posting.jobReqId}`,
+    posting.timeType && `Time type: ${posting.timeType}`,
+    posting.workerSubType && `Worker subtype: ${posting.workerSubType}`,
+    htmlToText(posting.jobDescription || posting.jobDescriptionAsText || posting.description || ''),
+    jsonText(posting.qualifications),
+    jsonText(posting.responsibilities),
+    jsonText(posting.skills),
+  ]);
+
+  return result({
+    method: 'workday-cxs-api',
+    url: parsed.href,
+    title: posting.title,
+    company,
+    location,
+    text,
+  });
+}
+
+function oracleHcmInfo(parsed) {
+  if (!/\.oraclecloud\.com$/i.test(parsed.hostname)) return null;
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  const candidateIdx = parts.indexOf('CandidateExperience');
+  const sitesIdx = parts.indexOf('sites');
+  const jobIdx = parts.indexOf('job');
+  if (candidateIdx < 0 || sitesIdx < 0 || jobIdx < 0) return null;
+
+  const lang = parts[candidateIdx + 1] || '';
+  const site = parts[sitesIdx + 1] || '';
+  const jobId = parts[jobIdx + 1] || '';
+  if (!lang || !site || !jobId) return null;
+  return { lang, site, jobId };
+}
+
+async function extractOracleHcm(parsed) {
+  const info = oracleHcmInfo(parsed);
+  if (!info) return null;
+
+  const finder = `ById;Id=${encodeURIComponent(`"${info.jobId}"`)},siteNumber=${encodeURIComponent(info.site)}`;
+  const api = `${parsed.origin}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=${finder}`;
+  const payload = await fetchJson(api, {
+    timeoutMs: 30_000,
+    headers: { 'Ora-Irc-Language': info.lang },
+  });
+  const job = payload.items?.[0];
+  if (!job) throw new Error(`oracle hcm: job ${info.jobId} not found on site ${info.site}`);
+
+  const secondaryLocations = Array.isArray(job.secondaryLocations)
+    ? job.secondaryLocations.map((loc) => loc.Name || loc.LocationName || loc.locationName)
+    : [];
+  const location = compact([job.PrimaryLocation, ...secondaryLocations, locationText(job.workLocation)]);
+  const company = job.LegalEmployer || job.Organization || job.BusinessUnit || '';
+  const text = compact([
+    job.Title,
+    company && `Company: ${company}`,
+    location && `Location: ${location}`,
+    job.RequisitionType && `Requisition type: ${job.RequisitionType}`,
+    job.RequisitionId && `Requisition ID: ${job.RequisitionId}`,
+    job.JobSchedule && `Schedule: ${job.JobSchedule}`,
+    job.WorkerType && `Worker type: ${job.WorkerType}`,
+    job.JobType && `Job type: ${job.JobType}`,
+    htmlToText(job.ShortDescriptionStr || ''),
+    htmlToText(job.ExternalDescriptionStr || ''),
+    htmlToText(job.ExternalResponsibilitiesStr || ''),
+    htmlToText(job.ExternalQualificationsStr || ''),
+    htmlToText(job.CorporateDescriptionStr || ''),
+    htmlToText(job.OrganizationDescriptionStr || ''),
+    jsonText(job.skills),
+  ]);
+
+  return result({
+    method: 'oracle-hcm-api',
+    url: parsed.href,
+    title: job.Title,
+    company,
+    location,
+    text,
+  });
+}
+
 function findJobPostingJsonLd(html) {
   const scripts = [...String(html || '').matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   for (const match of scripts) {
@@ -371,6 +584,9 @@ async function extract(rawUrl) {
     extractLever,
     extractWorkable,
     extractSmartRecruiters,
+    extractBambooHR,
+    extractWorkday,
+    extractOracleHcm,
     extractGeneric,
   ];
 
@@ -378,7 +594,14 @@ async function extract(rawUrl) {
   for (const extractor of extractors) {
     try {
       const extracted = await extractor(parsed);
-      if (extracted?.text) return { extracted, errors };
+      if (extracted?.text) {
+        const problem = qualityProblem(extracted);
+        if (problem) {
+          errors.push(`${extractor.name}: rejected ${extracted.method}: ${problem}`);
+          continue;
+        }
+        return { extracted, errors };
+      }
     } catch (err) {
       errors.push(`${extractor.name}: ${err.message}`);
     }
@@ -415,6 +638,7 @@ async function main() {
   if (metaFile) {
     await writeFileEnsuringDir(metaFile, JSON.stringify({
       url,
+      cache_schema: CACHE_SCHEMA_VERSION,
       method: extracted.method,
       title: extracted.title || null,
       company: extracted.company || null,

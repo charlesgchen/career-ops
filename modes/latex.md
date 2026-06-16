@@ -36,10 +36,18 @@ The three bases are configured in `config/profile.yml → cv.bases`:
 4. Extract 15-20 keywords from the JD.
 5. Detect the role archetype → adapt framing (see `modes/_profile.md`).
 6. Copy `{base}` → `output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex`.
-7. **Edit the copy in place** (NEVER edit `{base}` itself):
+7. **Edit the copy in place** (NEVER edit `{base}` itself). Tailoring is
+   **reorder-first, reword-minimally** — ordering wins more relevance than paraphrasing:
+   - **Reorder first, on every CV.** Move the most JD-relevant bullets to the top of each
+     role; reorder Projects so the top 3-4 relevant ones lead; list JD-relevant tech first
+     in the skills line. Apply this even when no wording changes.
+   - **Reword only to inject a real JD keyword** the existing achievement already supports.
+     If a bullet already covers its keywords, leave it byte-for-byte unchanged.
+   - **Never despecify.** Don't replace a concrete, distinctive noun (product/system name,
+     named tech, metric) with a vaguer phrase — specific beats generic.
+   - **No filler.** Don't add empty intensifiers ("production", "scalable", "end-to-end",
+     "cloud-deployed", etc.) unless the word is a literal JD keyword and true.
    - **Do NOT add a Professional Summary** (or objective/profile blurb). The user's bases have no summary section — never create one. Tailor by reordering and rewording existing content only.
-   - Reorder experience bullets so the most JD-relevant come first.
-   - Reorder/select projects so the top 3-4 most relevant for the offer lead.
    - Inject JD vocabulary into existing achievements — reword, never invent.
 8. Compile: `node generate-latex.mjs output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf`
 9. Report: which base was chosen (and why), `.tex` path, `.pdf` path, file sizes, keyword coverage %, and any validator warnings.

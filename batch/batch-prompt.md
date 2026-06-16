@@ -147,14 +147,35 @@ If score >= threshold:
 node generate-latex.mjs output/cv-candidate-{company-slug}-{{DATE}}.tex output/cv-candidate-{company-slug}-{{DATE}}.pdf
 ```
 
-Tailoring rules:
+Tailoring is **reorder-first, reword-minimally**. The biggest relevance win comes from
+ordering, not paraphrasing. Follow this order:
+
+1. **Reorder (do this first, on every CV).** Within each role, move the bullets that match
+   the JD to the top. Reorder the Projects section so the 3-4 most JD-relevant projects
+   lead. In the skills line, list JD-relevant technologies first. This is the primary
+   tailoring lever — apply it even when no wording changes.
+2. **Reword only to inject a real JD keyword.** Rewrite a bullet ONLY when the change adds
+   an actual term from the JD that the existing achievement already supports (e.g. JD says
+   "web-based" → "full-stack app" becomes "web-based app"). If a bullet already covers its
+   relevant keywords, leave it byte-for-byte unchanged.
+3. **Preserve specifics — never despecify.** Never replace a concrete, distinctive noun (a
+   product/system name like "managed MCP Gateway", a named technology, or a metric) with a
+   vaguer or more generic phrase. Specific always beats generic; keep the strongest wording
+   the base already offers.
+4. **No filler.** Do not add empty intensifiers ("production", "incremental", "robust",
+   "scalable", "end-to-end", "platform", "cloud-deployed", "leveraging") unless the word is
+   a literal JD keyword AND true. Every added word must carry information — padding dilutes
+   impact and makes a bullet read thinner, not stronger.
+5. **Smallest diff that maximizes coverage.** Prefer the fewest edits needed; the same input
+   should produce nearly the same output. Do not churn wording for its own sake.
+
+Hard constraints:
 
 - Preserve LaTeX structure, packages, commands, and section names.
 - No Professional Summary, Objective, Profile, or new intro section.
-- Reorder experiences/projects/bullets by JD relevance when structure allows.
-- Rewrite existing bullets with JD vocabulary only when meaning is already supported.
 - Keep exact metrics from selected base or `article-digest.md`.
-- Keep one page; shorten/deprioritize less relevant lines.
+- Keep one page; when trimming for space, cut whole low-relevance bullets/projects rather
+  than watering down strong ones.
 - Do not add tools, skills, credentials, responsibilities, or metrics not in the selected base.
 - Do not copy bullets from another base.
 - Escape LaTeX special characters in changed text.
