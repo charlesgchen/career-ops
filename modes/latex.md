@@ -49,8 +49,12 @@ The three bases are configured in `config/profile.yml → cv.bases`:
      "cloud-deployed", etc.) unless the word is a literal JD keyword and true.
    - **Do NOT add a Professional Summary** (or objective/profile blurb). The user's bases have no summary section — never create one. Tailor by reordering and rewording existing content only.
    - Inject JD vocabulary into existing achievements — reword, never invent.
-8. Compile: `node generate-latex.mjs output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf`
-9. Report: which base was chosen (and why), `.tex` path, `.pdf` path, file sizes, keyword coverage %, and any validator warnings.
+8. **ATS keyword audit (mandatory).** Before compiling, run the coverage audit in the
+   "ATS Keyword Matching" section below: classify every JD keyword as covered / partial /
+   gap, and realign each `partial` to the JD's exact term. Reordering alone is not enough —
+   ATS matches literal tokens.
+9. Compile: `node generate-latex.mjs output/cv-{candidate}-{company}-{YYYY-MM-DD}.tex output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf`
+10. Report: which base was chosen (and why), `.tex` path, `.pdf` path, file sizes, keyword coverage % (with the covered / partial→aligned / gap breakdown), and any validator warnings.
 
 **Requires:** `tectonic` (preferred — auto-downloads packages) or `pdflatex` (MiKTeX / TeX Live) on PATH.
 
@@ -91,6 +95,38 @@ Why this matters: removing fabricated skills by hand afterward is painful and ri
   - JD says "MLOps" → reword "observability, evals" to "MLOps and observability"
 - Distribute keywords naturally: the first bullet of each role and (if present) the
   skills section. Do NOT add a summary section to carry keywords.
+
+## ATS Keyword Matching (MANDATORY — run after reorder/reword, before compiling)
+
+ATS parsers match **literal tokens, not meaning.** A bullet that describes the right
+work in different words scores as a miss — so reordering and reading well to a human is
+not enough. After tailoring, run an explicit coverage audit before you compile:
+
+1. **Extract the JD's concrete keywords** (skills, tools, methods, named concepts) — the
+   same 15-20 you pulled in pipeline step 4.
+2. **Classify each against the current draft:**
+   - **covered** — the exact term (or an unambiguous variant) already appears.
+   - **partial** — the candidate's real experience supports it, but the résumé uses
+     different vocabulary than the JD.
+   - **gap** — no supporting experience in the selected base.
+3. **For every `partial`, align the wording to the JD's exact term.** This is *required,
+   not optional* — it is the same achievement relabeled with the scanner's vocabulary.
+   Examples from real tailoring:
+   - JD says "observability" + bullet says "audit/usage logging" → "...for observability
+     and traceability of agent tool calls"
+   - JD says "evaluation harness" + bullet says "evaluation pipeline" → "evaluation harness"
+   - JD says "ETL" + bullet says "preprocessing with Spark" → "Spark ETL pipelines"
+4. **Leave every `gap` off the résumé.** Never invent a skill, tool, or credential to hit
+   a keyword. Surface gaps to the user for the cover letter, where prose can absorb the
+   tokens truthfully ("built the equivalent from scratch, so {named tool} is a fast pickup").
+
+This does **not** relax "reword minimally / never despecify / never invent" — it sharpens
+the test for "this bullet already covers its keywords": the bar is whether the JD's *exact
+term* appears, not whether a human-readable synonym does. Only realign vocabulary the
+candidate's existing experience genuinely supports.
+
+In the step 9 report, show the coverage audit as a short `covered / partial→aligned / gap`
+breakdown so the user can see which keywords were matched and which were honestly left out.
 
 ## LaTeX Escaping (for content you add/change)
 

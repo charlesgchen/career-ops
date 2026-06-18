@@ -60,7 +60,8 @@ Use one of these archetypes:
 | `ML Research / Research Assistant` | Can run careful experiments, read literature, and communicate scientific results | publication work, ablations, benchmarks, research writing |
 
 Hard stops/caps: score `0.0` and `Skip` if the role explicitly requires completed
-Masters/PhD, current graduate status, or PhD-level credentials. Cap senior/staff/lead
+Masters/PhD, current graduate status, or PhD-level credentials. DO NOT DO ANY OF THESE OTHER STEPS IF THIS IS TRUE.
+SKIP TO STEP 6 (Tracker TSV), OTHERWISE ITS A TOTAL WASTE OF TOKENS. Cap senior/staff/lead
 roles unless clearly intern/co-op/new-grad friendly. Penalize roles outside intern/co-op
 fit. Do not over-penalize unknown compensation if the profile target range is blank.
 
@@ -168,6 +169,21 @@ ordering, not paraphrasing. Follow this order:
    impact and makes a bullet read thinner, not stronger.
 5. **Smallest diff that maximizes coverage.** Prefer the fewest edits needed; the same input
    should produce nearly the same output. Do not churn wording for its own sake.
+6. **ATS keyword audit (mandatory, run last before compiling).** ATS parsers match **literal
+   tokens, not meaning** — a bullet describing the right work in different words scores as a
+   miss, so reordering and reading well to a human is not enough. Using the same JD keywords
+   you will list in `## Extracted Keywords`, classify each against the current draft as
+   `covered` (exact term present), `partial` (real experience supports it but the résumé uses
+   different vocabulary), or `gap` (no supporting evidence in the selected base). For every
+   `partial`, realign the wording to the JD's exact term — this is required, not optional; it
+   is the same achievement relabeled with the scanner's vocabulary. Examples: JD "observability"
+   + "audit/usage logging" → "...for observability and traceability"; JD "evaluation harness" +
+   "evaluation pipeline" → "evaluation harness"; JD "ETL" + "preprocessing with Spark" → "Spark
+   ETL pipelines". Leave every `gap` off the résumé — never invent a skill/tool/credential to
+   hit a keyword. This sharpens (does not relax) the rules above: the test for "already covers
+   its keywords" is whether the JD's *exact term* appears, not whether a synonym does. The
+   `partial` items you realign here should end up as `covered` in the `## Extracted Keywords`
+   section; anything still `gap` must be reported honestly as `gap`.
 
 Hard constraints:
 
